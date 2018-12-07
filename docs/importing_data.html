@@ -1,0 +1,163 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Importing catalog data &#8212; AXS 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="AxsFrame" href="api/axsframe.html" />
+    <link rel="prev" title="Starting AXS" href="getting_started.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="importing-catalog-data">
+<h1>Importing catalog data<a class="headerlink" href="#importing-catalog-data" title="Permalink to this headline">¶</a></h1>
+<p>Using AXS without real catalog data is probably good for testing purposes, but you will probably want to load into AXS
+some real astronomical measurements from catalogs such as SDSS or Gaia. There are several ways how to load data into AXS.
+The goal here is to have your AXS catalog aware of where the data resides. AXS data is physically stored in Parquet files (as
+was described in the <a class="reference internal" href="introduction.html"><span class="doc">introduction</span></a>, and the information about them is stored in the AXS “metastore”.</p>
+<p>AXS metastore relies on, and extends, Spark’s metastore. By default, Spark (and AXS) will store metastore data (information
+about tables, their physical location, bucketing information, and so on) in a Derby database, created in a folder called
+<cite>metastore_db</cite> in your working folder. You can also specify a different database to be used as a metastore by placing
+a <cite>hive-site.xml</cite> file, containing the required configuration, in the <cite>conf</cite> sub-directory of your AXS installation folder.
+AXS installation contains an example of this file for connecting to a MariaDB.</p>
+<p>So, the goal is to have catalog data properly partitioned in Parquet files, on a local or a distributed file system,
+and information about the table data registered in the Spark metastore. Additionally, AXS also needs to register
+the table data in its own configuration tables.</p>
+<p>There are three ways you can accomplish this:</p>
+<ul class="simple">
+<li>importing data from downloaded Parquet files</li>
+<li>importing data already registered in Spark metastore</li>
+<li>importing new data from scratch</li>
+</ul>
+<div class="section" id="importing-data-from-parquet-files">
+<h2>Importing data from Parquet files<a class="headerlink" href="#importing-data-from-parquet-files" title="Permalink to this headline">¶</a></h2>
+<p>You can download catalog data as pre-partitioned AXS Parquet files. After placing the files in a folder (for example
+<cite>/data/axs/sdss</cite>), load the files into AXS metastore by calling <cite>AxsCatalog</cite>’s <cite>import_existing_table</cite> method:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">axs</span> <span class="kn">import</span> <span class="n">AxsCatalog</span><span class="p">,</span> <span class="n">Constants</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">AxsCatalog</span><span class="p">(</span><span class="n">spark</span><span class="p">)</span>
+<span class="n">db</span><span class="o">.</span><span class="n">import_existing_table</span><span class="p">(</span><span class="s1">&#39;sdss_table&#39;</span><span class="p">,</span> <span class="s1">&#39;/data/axs/sdss&#39;</span><span class="p">,</span> <span class="n">num_buckets</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">ONE_AMIN</span><span class="p">,</span>
+    <span class="n">import_into_spark</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This will register the files from the <cite>/data/axs/sdss</cite> folder as a new table (visible both from Spark and AXS)
+called <cite>sdss_table</cite> and tell Spark that the files are bucketed by the <cite>zone</cite> column into 500 buckets and that the data
+within the buckets is sorted by <cite>zone</cite> and <cite>ra</cite> columns. When using this method it is assumed that there is no table
+with the same name in the metastore and that the Parquet files are indeed bucketed as described.</p>
+</div>
+<div class="section" id="importing-a-table-from-a-spark-metastore">
+<h2>Importing a table from a Spark metastore<a class="headerlink" href="#importing-a-table-from-a-spark-metastore" title="Permalink to this headline">¶</a></h2>
+<p>If you have a properly bucketed and AXS-readable table already registered in the Spark metastore as a Spark table, you
+can use the same <cite>AxsCatalog</cite> method with different parameters to register the table in AXS metastore:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">db</span><span class="o">.</span><span class="n">import_existing_table</span><span class="p">(</span><span class="s1">&#39;sdss_table&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">num_buckets</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">ONE_AMIN</span><span class="p">,</span>
+    <span class="n">import_into_spark</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">update_spark_bucketing</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <cite>path</cite> argument is not used in this case because the path is known for an existing Spark table. The difference is
+the value of <cite>import_into_spark</cite> parameter, which is now set to <cite>False</cite>. You can set <cite>update_spark_bucketing</cite> to <cite>False</cite>
+if you know that Spark is aware of table’s bucketing. If a properly bucketed Parquet file was imported into Spark using
+Spark API, the bucketing information will not be available, so you will probably want to set <cite>update_spark_bucketing</cite>
+to <cite>True</cite>.</p>
+</div>
+<div class="section" id="importing-new-data-from-scratch">
+<h2>Importing new data from scratch<a class="headerlink" href="#importing-new-data-from-scratch" title="Permalink to this headline">¶</a></h2>
+<p>Finally, you can also import new data into AXS and specify it as a Spark <cite>DataFrame</cite>. You use <cite>AxsCatalog</cite>’s <cite>save_axs_table</cite>
+method for that, which looks like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">save_axs_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">tblname</span><span class="p">,</span> <span class="n">repartition</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">calculate_zone</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                   <span class="n">num_buckets</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">NUM_BUCKETS</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">ZONE_HEIGHT</span><span class="p">):</span>
+</pre></div>
+</div>
+<p>As a bare minimum, you need to provide a Spark <cite>DataFrame</cite> (variable <cite>df</cite>), containing at least <cite>ra</cite> and <cite>dec</cite> columns,
+and the desired table name. You
+would typically obtain the <cite>DataFrame</cite> by loading and parsing data from external files (e.g. FITS or HDF5 files). If the
+data is already correctly partitioned (in Spark partitions), set <cite>repartition</cite> to <cite>False</cite>. If the <cite>zone</cite> column is already
+present in the input <cite>DataFrame</cite>, set <cite>calculate_zone</cite> to <cite>False</cite>. Finally, it is best to leave the defaults for the
+number of buckets and zone height, but you can also override the defaults.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Importing catalog data</a><ul>
+<li><a class="reference internal" href="#importing-data-from-parquet-files">Importing data from Parquet files</a></li>
+<li><a class="reference internal" href="#importing-a-table-from-a-spark-metastore">Importing a table from a Spark metastore</a></li>
+<li><a class="reference internal" href="#importing-new-data-from-scratch">Importing new data from scratch</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="getting_started.html" title="previous chapter">Starting AXS</a></li>
+      <li>Next: <a href="api/axsframe.html" title="next chapter"><cite>AxsFrame</cite></a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/importing_data.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Mario Juric, Colin T. Slater, Petar Zecevic.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/importing_data.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

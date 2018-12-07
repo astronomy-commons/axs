@@ -1,0 +1,135 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Introduction to AXS &#8212; AXS 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="AXS Installation" href="installation.html" />
+    <link rel="prev" title="Welcome to AXS’s documentation!" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="introduction-to-axs">
+<h1>Introduction to AXS<a class="headerlink" href="#introduction-to-axs" title="Permalink to this headline">¶</a></h1>
+<p>AXS is a framework for processing data from astronomical catalogs based on <a class="reference external" href="https://spark.apache.org/">Apache Spark</a>.
+AXS stands for <em>Astronomy eXtensions for Spark</em>.</p>
+<p>AXS was designed to make life easier for astronomers when they have to
+cruch data from astronomical catalogs (which is close to “all the time”). The way this process usually works is that
+an astronomer selects some data from a public or a private catalog using an SQL query, exports that data to some
+location and then writes custom (most likely Python) scripts to further analyze the data. Relying on the underlying
+Spark engine, AXS simplifies this process by allowing astronomers to query the data and run arbitrary processing
+on the results <em>all within the same framework</em>. There is usually no need for data export and separate programs.</p>
+<p>Another thing that astronomers often need to do is to cross-match several catalogs: find the same objects from
+different catalogs based on distance calculations. This is computationally very expensive operation. AXS partitions
+the data in a way that makes cross-matching extremely efficient.</p>
+<div class="section" id="spark-specifics">
+<h2>Spark specifics<a class="headerlink" href="#spark-specifics" title="Permalink to this headline">¶</a></h2>
+<p>If you wish to use AXS and you have never worked with Spark, you will have some adjusting to do because AXS is a
+wrapper around Spark, or Spark SQL to be exact. <code class="xref py py-class docutils literal notranslate"><span class="pre">AxsFrame</span></code> class is a wrapper around Spark’s <cite>DataFrame</cite> so
+all operations available on <cite>DataFrames</cite> are also available on <code class="xref py py-class docutils literal notranslate"><span class="pre">AxsFrame</span></code>.</p>
+<p>There are a few concepts that a new Spark user might find confusing.</p>
+<p>First of all, <cite>DataFrames</cite> (and <cite>AxsFrames</cite>) are <em>lazy</em> and will be evaluated and executed only when an <em>action</em>
+(such as <cite>show</cite> or <cite>count</cite>) is called.</p>
+<p>Secondly, <cite>DataFrames</cite> are immutable. When you call a <em>transformation</em> (such as <cite>select</cite> or <cite>where</cite>)  you obtain a new
+<cite>DataFrame</cite>. Stacking up transformations builds the <cite>DataFrame</cite> “program” to be executed later.</p>
+<p>Because of all this, if this program results in an error, you will have to examine all the transformations that
+went into building the <cite>DataFrame</cite> and not just the last one (which would be the first, natural reaction).</p>
+<p>Spark is a complex framework and execution engine and you would do well to invest some time into learning Spark basics
+if you intend to use AXS.</p>
+</div>
+<div class="section" id="axs-data-partitioning">
+<h2>AXS data partitioning<a class="headerlink" href="#axs-data-partitioning" title="Permalink to this headline">¶</a></h2>
+<p>AXS partitions the sky into horizontal strips of fixed height, called <em>zones</em>. Data is physically partitioned into
+<em>buckets</em>, which are ordinary (Parquet) files containing part of the data of the full dataset. Zones are sequentially placed
+into buckets. Since there are many more zones than buckets, a single bucket contains data from various
+non-neighboring zones. Within a bucket, data is sorted by zone (derived from the Dec coordinate) and then by the
+RA coordinate.</p>
+<p>This setup enables fast spatial searches and fast cross-matching of different catalogs.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Introduction to AXS</a><ul>
+<li><a class="reference internal" href="#spark-specifics">Spark specifics</a></li>
+<li><a class="reference internal" href="#axs-data-partitioning">AXS data partitioning</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Welcome to AXS’s documentation!</a></li>
+      <li>Next: <a href="installation.html" title="next chapter">AXS Installation</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/introduction.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Mario Juric, Colin T. Slater, Petar Zecevic.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/introduction.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

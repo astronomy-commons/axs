@@ -1,0 +1,190 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Starting AXS &#8212; AXS 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Importing catalog data" href="importing_data.html" />
+    <link rel="prev" title="AXS Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="starting-axs">
+<h1>Starting AXS<a class="headerlink" href="#starting-axs" title="Permalink to this headline">¶</a></h1>
+<p>After you have <a class="reference internal" href="installation.html"><span class="doc">installed AXS</span></a>, you have three options how to run AXS:</p>
+<ul class="simple">
+<li>using <cite>pyspark</cite> shell</li>
+<li>from a Python program</li>
+<li>from a Jupyter notebook</li>
+</ul>
+<p>All three options are determined by different ways of starting a Spark session, which is required for running AXS.
+And in all three options you have to decide which Spark “master” (or the type of Spark cluster) to use. The easiest
+way is to run it locally, using <cite>local[n]</cite> “master” (where <cite>n</cite> is the number of tasks you wish to run in parallel). Other ways
+are to start a <a class="reference external" href="http://spark.apache.org/docs/latest/spark-standalone.html">Standalone Spark cluster</a> and connect to it,
+or connect to an existing <a class="reference external" href="hhttp://spark.apache.org/docs/latest/running-on-yarn.html">YARN</a> or
+<a class="reference external" href="http://spark.apache.org/docs/latest/running-on-mesos.html">Mesos</a> cluster. There is also an option to run Spark
+in <a class="reference external" href="http://spark.apache.org/docs/latest/running-on-kubernetes.html">Kubernetes</a>.</p>
+<div class="section" id="starting-axs-using-pyspark-shell">
+<h2>Starting AXS using pyspark shell<a class="headerlink" href="#starting-axs-using-pyspark-shell" title="Permalink to this headline">¶</a></h2>
+<p>Start <cite>pyspark</cite> specifying <cite>master</cite> and other options as you see fit. For example:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pyspark --master<span class="o">=</span>local<span class="o">[</span><span class="m">10</span><span class="o">]</span> --driver-memory<span class="o">=</span>64g
+</pre></div>
+</div>
+<p>Then, inside the shell, create an instance of AXS catalog, providing the <cite>SparkSession</cite> instance already initialized in
+the shell:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">axs</span> <span class="kn">import</span> <span class="n">AxsCatalog</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">AxsCatalog</span><span class="p">(</span><span class="n">spark</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-axs-using-a-python-program">
+<h2>Starting AXS using a Python program<a class="headerlink" href="#starting-axs-using-a-python-program" title="Permalink to this headline">¶</a></h2>
+<p>To use AXS from a Python program, first set the <cite>SPARK_HOME</cite> environment variable to the directory where you installed
+AXS’ version of Spark. For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">SPARK_HOME</span><span class="o">=/</span><span class="n">opt</span><span class="o">/</span><span class="n">axs</span><span class="o">-</span><span class="n">dist</span>
+</pre></div>
+</div>
+<p>To connect to a Spark Standalone cluster, first start it from the AXS installation directory:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sbin/start-all.sh
+</pre></div>
+</div>
+<p>Then, after you start an ordinary Python shell, you will first need to create an instance of <cite>SparkSession</cite> and connect
+to the Spark cluster. For example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">spark</span> <span class="o">=</span> <span class="n">SparkSession</span><span class="o">.</span><span class="n">builder</span><span class="o">.</span>\
+    <span class="n">master</span><span class="p">(</span><span class="s2">&quot;spark://localhost:7078&quot;</span><span class="p">)</span><span class="o">.</span>\
+    <span class="n">config</span><span class="p">(</span><span class="s2">&quot;spark.cores.max&quot;</span><span class="p">,</span> <span class="s2">&quot;10&quot;</span><span class="p">)</span><span class="o">.</span> \
+    <span class="n">config</span><span class="p">(</span><span class="s2">&quot;spark.executor.cores&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">)</span><span class="o">.</span>\
+    <span class="n">config</span><span class="p">(</span><span class="s2">&quot;spark.driver.memory&quot;</span><span class="p">,</span> <span class="s2">&quot;12g&quot;</span><span class="p">)</span><span class="o">.</span> \
+    <span class="n">config</span><span class="p">(</span><span class="s2">&quot;spark.executor.memory&quot;</span><span class="p">,</span> <span class="s2">&quot;12g&quot;</span><span class="p">)</span><span class="o">.</span> \
+    <span class="n">appName</span><span class="p">(</span><span class="s2">&quot;AXS application&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">getOrCreate</span><span class="p">()</span>
+<span class="kn">from</span> <span class="nn">axs</span> <span class="kn">import</span> <span class="n">AxsCatalog</span>
+<span class="n">db</span> <span class="o">=</span> <span class="n">AxsCatalog</span><span class="p">(</span><span class="n">spark</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In this example the Spark session is pointing to a Spark standalone master listening at port <cite>7078</cite> at <cite>localhost</cite>.
+Of course, you can also specify the master to be <cite>local[10]</cite>, as in the previous example.</p>
+</div>
+<div class="section" id="starting-axs-from-a-jupyter-notebook">
+<h2>Starting AXS from a Jupyter notebook<a class="headerlink" href="#starting-axs-from-a-jupyter-notebook" title="Permalink to this headline">¶</a></h2>
+<p>To correctly setup a Jupyter environment, it is best to create a new Jupyter kernel and then edit the corresponding
+<cite>kernel.json</cite> file. You can get a list of current kernels using the following command:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>jupyter kernelspec list
+</pre></div>
+</div>
+<p>Then edit the <cite>kernel.json</cite> file in the dispalyed folder (e.g. <cite>/usr/local/share/jupyter/kernels/mypythonkernel/kernel.json</cite>)
+and change the variables in the <cite>env</cite> section. Here as a working example when AXS in installed in <cite>/opt/axs-dist</cite>:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span class="p">{</span>
+ <span class="nt">&quot;argv&quot;</span><span class="p">:</span> <span class="p">[</span>
+  <span class="s2">&quot;/opt/anaconda/bin/python&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;-m&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;ipykernel_launcher&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;-f&quot;</span><span class="p">,</span>
+  <span class="s2">&quot;{connection_file}&quot;</span>
+ <span class="p">],</span>
+ <span class="nt">&quot;display_name&quot;</span><span class="p">:</span> <span class="s2">&quot;AXS&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;language&quot;</span><span class="p">:</span> <span class="s2">&quot;python&quot;</span><span class="p">,</span>
+ <span class="nt">&quot;env&quot;</span><span class="p">:</span> <span class="p">{</span>
+  <span class="nt">&quot;SPARK_HOME&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/axs-dist&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;PYLIB&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/axs-dist/python/lib:/opt/spark-axs/python/lib/py4j-0.10.7-src.zip&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;PYTHONPATH&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/axs-dist/python:/opt/anaconda/lib/python36.zip:/opt/anaconda/lib/python3.6:/opt/anaconda/lib/python3.6/lib-dynload:/opt/anaconda/lib/python3.6</span>
+<span class="s2">/site-packages:/opt/anaconda/lib/python3.6/site-packages/IPython/extensions&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;JUPYTERPATH&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/axs-dist/python:/epyc/opt/anaconda/lib/python36.zip:/opt/anaconda/lib/python3.6:/opt/anaconda/lib/python3.6/lib-dynload:/opt/anaconda/lib/python3.</span>
+<span class="s2">6/site-packages:/opt/anaconda/lib/python3.6/site-packages/IPython/extensions&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;PATH&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/axs-dist/python/lib/py4j-0.10.7-src.zip:/opt/spark-axs/bin:/epyc/opt/jdk1.8.0_161/bin:/opt/anaconda/bin:/usr/lib64/qt-3.3/bin:/bin:/usr/local/sbin:/usr/local/</span>
+<span class="s2">bin:/usr/sbin:/usr/bin:/var/lib/jupyterhub/miniconda/bin&quot;</span><span class="p">,</span>
+  <span class="nt">&quot;JAVA_HOME&quot;</span><span class="p">:</span> <span class="s2">&quot;/opt/jdk1.8.0_161&quot;</span>
+ <span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Then start a new notebook with the kernel you just edited. After that, you can start a Spark session and create an
+instance of <cite>AxsCatalog</cite> just as you did in the Python case above.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Starting AXS</a><ul>
+<li><a class="reference internal" href="#starting-axs-using-pyspark-shell">Starting AXS using pyspark shell</a></li>
+<li><a class="reference internal" href="#starting-axs-using-a-python-program">Starting AXS using a Python program</a></li>
+<li><a class="reference internal" href="#starting-axs-from-a-jupyter-notebook">Starting AXS from a Jupyter notebook</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">AXS Installation</a></li>
+      <li>Next: <a href="importing_data.html" title="next chapter">Importing catalog data</a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/getting_started.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Mario Juric, Colin T. Slater, Petar Zecevic.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/getting_started.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,352 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>axs.catalog &#8212; AXS 0.1 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for axs.catalog</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">from</span> <span class="nn">axs.axsframe</span> <span class="k">import</span> <span class="n">AxsFrame</span>
+<span class="kn">from</span> <span class="nn">axs</span> <span class="k">import</span> <span class="n">Constants</span>
+<span class="kn">from</span> <span class="nn">pyspark.sql</span> <span class="k">import</span> <span class="n">functions</span> <span class="k">as</span> <span class="n">F</span>
+
+
+<div class="viewcode-block" id="AxsCatalog"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog">[docs]</a><span class="k">class</span> <span class="nc">AxsCatalog</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implements high-level operations on AXS tables, such as loading, saving, renaming and dropping. AXS tables are</span>
+<span class="sd">    Spark Parquet tables, but are bucketed and sorted in a special way. `AxsCatalog` relies on Spark Catalog for</span>
+<span class="sd">    loading table data and it needs an active `SparkSession` object (with Hive support enabled) for initialization.</span>
+<span class="sd">    This is also necessary because information about available AXS tables is persisted in a special AXS table in Spark</span>
+<span class="sd">    metastore DB.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">ZONE_HEIGHT</span> <span class="o">=</span> <span class="n">Constants</span><span class="o">.</span><span class="n">ONE_AMIN</span>
+    <span class="n">NGBR_BORDER_HEIGHT</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">Constants</span><span class="o">.</span><span class="n">ONE_ASEC</span>
+    <span class="n">RA_COLNAME</span> <span class="o">=</span> <span class="s2">&quot;ra&quot;</span>
+    <span class="n">DEC_COLNAME</span> <span class="o">=</span> <span class="s2">&quot;dec&quot;</span>
+    <span class="n">DUP_COLNAME</span> <span class="o">=</span> <span class="s2">&quot;dup&quot;</span>
+    <span class="n">ZONE_COLNAME</span> <span class="o">=</span> <span class="s2">&quot;zone&quot;</span>
+
+    <span class="n">NUM_BUCKETS</span> <span class="o">=</span> <span class="n">Constants</span><span class="o">.</span><span class="n">NUM_BUCKETS</span>
+
+    <span class="n">__instance</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">spark_session</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Initializes the catalog using connection to the Spark metastore of the current `SparkSession`.</span>
+
+<span class="sd">        :param sparkSession: An active and initialized Spark session which can be used for accessing</span>
+<span class="sd">        Spark catalog. Can be None if AxsCatalog has already been initialized at least once.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">spark_session</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">__instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Spark session is none but AxsCatalog hasn&#39;t been initialized yet.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">spark_session</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spark</span> <span class="o">=</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">__instance</span><span class="o">.</span><span class="n">spark</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spark</span> <span class="o">=</span> <span class="n">spark_session</span>
+        <span class="c1"># _CatalogUtils is a bridge to AXS Java functions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">sparkContext</span><span class="o">.</span><span class="n">_jvm</span><span class="o">.</span><span class="n">org</span><span class="o">.</span><span class="n">dirac</span><span class="o">.</span><span class="n">axs</span><span class="o">.</span><span class="n">util</span><span class="o">.</span><span class="n">CatalogUtils</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">_jsparkSession</span><span class="p">)</span>
+        <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">__instance</span> <span class="o">=</span> <span class="bp">self</span>
+
+<div class="viewcode-block" id="AxsCatalog.load"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Loads a known AXS table from a Spark catalog and returns it as an `AxsFrame`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># if table_name not in AxsCatalog._AXS_TABLES:</span>
+        <span class="n">info</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">table_info</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
+
+        <span class="n">table</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">table</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">AxsFrame</span><span class="p">(</span><span class="n">table</span><span class="p">,</span> <span class="n">info</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.import_existing_table"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.import_existing_table">[docs]</a>    <span class="k">def</span> <span class="nf">import_existing_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">num_buckets</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">ONE_AMIN</span><span class="p">,</span>
+            <span class="n">import_into_spark</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">update_spark_bucketing</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">bucket_col</span><span class="o">=</span><span class="s1">&#39;zone&#39;</span><span class="p">,</span> <span class="n">ra_col</span><span class="o">=</span><span class="s1">&#39;ra&#39;</span><span class="p">,</span> <span class="n">dec_col</span><span class="o">=</span><span class="s1">&#39;dec&#39;</span><span class="p">,</span>
+            <span class="n">lightcurves</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">lc_cols</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Imports an existing, properly bucketed and sorted Parquet file into AXS catalog.</span>
+<span class="sd">        If `import_into_spark` is True, the table will also be imported into Spark catalog.</span>
+
+<span class="sd">        `bucket_col`, `ra_col` and `dec_col` allow for changing the default bucketing and sorting columns.</span>
+
+<span class="sd">        If `lightcurves` is True, then some columns are expected to be array columns. Those are specified in `lc_cols`.</span>
+<span class="sd">        array.</span>
+
+<span class="sd">        :param table_name: The table name into which to import the data.</span>
+<span class="sd">        :param path: The path to the bucketed Parquet file to be imported (needed only for Spark import).</span>
+<span class="sd">        :param num_buckets: Number of buckets in the input Parquet file.</span>
+<span class="sd">        :param zone_height: Zone height used for data partitioning.</span>
+<span class="sd">        :param import_into_spark: Whether to also import the table into Spark. If `False`, the table should</span>
+<span class="sd">            already exist in Spark metastore.</span>
+<span class="sd">        :param update_spark_bucketing: Whether to also update bucketing info in Spark metastore.</span>
+<span class="sd">        :param bucket_col: The column used for data bucketing.</span>
+<span class="sd">        :param ra_col: The name of column containing RA coordinates.</span>
+<span class="sd">        :param dec_col: The name of column containing DEC coordinates.</span>
+<span class="sd">        :param lightcurves: Whether the table contains lightcurve data as array columns.</span>
+<span class="sd">        :param lc_cols: Comma-separated list of names of array columns containing lightcurve data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">tableExists</span><span class="p">(</span><span class="n">table_name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Table </span><span class="si">%s</span><span class="s2"> already exists in AXS catalog&quot;</span> <span class="o">%</span> <span class="n">table_name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">import_into_spark</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">catalog</span><span class="o">.</span><span class="n">createTable</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="s2">&quot;parquet&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">update_spark_bucketing</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">updateSparkMetastoreBucketing</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">num_buckets</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">saveNewTable</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">num_buckets</span><span class="p">,</span> <span class="n">zone_height</span><span class="p">,</span>
+                                        <span class="n">bucket_col</span><span class="p">,</span> <span class="n">ra_col</span><span class="p">,</span> <span class="n">dec_col</span><span class="p">,</span> <span class="n">lightcurves</span><span class="p">,</span> <span class="n">lc_cols</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.table_info"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.table_info">[docs]</a>    <span class="k">def</span> <span class="nf">table_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a known AxsFrame table info as a dictionary with these keys:</span>
+<span class="sd">        - `table_id` - Internal table ID</span>
+<span class="sd">        - `table_name` - Name of the table</span>
+<span class="sd">        - `num_buckets` - Number of buckets used for partitioning the table data</span>
+<span class="sd">        - `zone_height` - Zone height used for data partitioning</span>
+<span class="sd">        - `bucket_col` - the column name used for bucketing</span>
+<span class="sd">        - `ra_col` - the column containing RA coordinates</span>
+<span class="sd">        - `dec_col` - the column containing DEC coordinates</span>
+<span class="sd">        - `has_lightcurves` - whether the table contains lightcurve data as array columns</span>
+<span class="sd">        - `lc_columns` - a list of array columns containing lightcurve data</span>
+
+<span class="sd">        :param table_name: Table name for which to fetch info.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># return AxsCatalog._AXS_TABLES</span>
+        <span class="n">tbls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">listTables</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">tbls</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">getTableName</span><span class="p">()</span> <span class="o">==</span> <span class="n">table_name</span><span class="p">:</span>
+                <span class="k">return</span> <span class="p">{</span><span class="s1">&#39;table_id&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getTableId</span><span class="p">(),</span> <span class="s1">&#39;table_name&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getTableName</span><span class="p">(),</span>
+                    <span class="s1">&#39;num_buckets&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getNumBuckets</span><span class="p">(),</span> <span class="s1">&#39;zone_height&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getZoneHeight</span><span class="p">(),</span>
+                    <span class="s1">&#39;bucket_col&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getBucketCol</span><span class="p">(),</span> <span class="s1">&#39;ra_col&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getRaCol</span><span class="p">(),</span>
+                    <span class="s1">&#39;dec_col&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getDecCol</span><span class="p">(),</span> <span class="s1">&#39;has_lightcurves&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">isLightcurves</span><span class="p">(),</span> <span class="s1">&#39;lc_columns&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getLcColumns</span><span class="p">()}</span>
+        <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Table </span><span class="si">%s</span><span class="s2"> not found in AXS catalog&quot;</span> <span class="o">%</span> <span class="n">table_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.list_tables"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.list_tables">[docs]</a>    <span class="k">def</span> <span class="nf">list_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of a known AxsFrame tables as a dictionary where the keys are table names and the values</span>
+<span class="sd">        are again dictionaries with these fields:</span>
+<span class="sd">        - `table_id` - Internal table ID</span>
+<span class="sd">        - `table_name` - Name of the table</span>
+<span class="sd">        - `num_buckets` - Number of buckets used for partitioning the table data</span>
+<span class="sd">        - `zone_height` - Zone height used for data partitioning</span>
+<span class="sd">        - `bucket_col` - the column name used for bucketing</span>
+<span class="sd">        - `ra_col` - the column containing RA coordinates</span>
+<span class="sd">        - `dec_col` - the column containing DEC coordinates</span>
+<span class="sd">        - `has_lightcurves` - whether the table contains lightcurve data as array columns</span>
+<span class="sd">        - `lc_columns` - a list of array columns containing lightcurve data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tbls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">listTables</span><span class="p">()</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">tbls</span><span class="p">:</span>
+            <span class="n">res</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">getTableName</span><span class="p">()]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;table_id&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getTableId</span><span class="p">(),</span> <span class="s1">&#39;table_name&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getTableName</span><span class="p">(),</span>
+                <span class="s1">&#39;num_buckets&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getNumBuckets</span><span class="p">(),</span> <span class="s1">&#39;zone_height&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getZoneHeight</span><span class="p">(),</span> <span class="s1">&#39;bucket_col&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getBucketCol</span><span class="p">(),</span>
+                <span class="s1">&#39;ra_col&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getRaCol</span><span class="p">(),</span> <span class="s1">&#39;dec_col&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getDecCol</span><span class="p">(),</span> <span class="s1">&#39;has_lightcurves&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">isLightcurves</span><span class="p">(),</span>
+                <span class="s1">&#39;lc_columns&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getLcColumns</span><span class="p">()}</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.save_axs_table"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.save_axs_table">[docs]</a>    <span class="k">def</span> <span class="nf">save_axs_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">tblname</span><span class="p">,</span> <span class="n">repartition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">calculate_zone</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                       <span class="n">num_buckets</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">NUM_BUCKETS</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">ZONE_HEIGHT</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Saves a Spark DataFrame as an AxsFrame under the name `tblname`. Also saves the</span>
+<span class="sd">        table as a Spark table in the Spark catalog. The table will be bucketed into</span>
+<span class="sd">        `AxsCatalog.NUM_BUCKETS` buckets, each bucket sorted by `zone` and `ra` columns.</span>
+
+<span class="sd">        Note: If saving intermediate results from cross-matching two AxsFrames the DataFrame should</span>
+<span class="sd">        already be partitioned appropriately. `repartition` should then be set to `False`</span>
+<span class="sd">        to speed things up.</span>
+
+<span class="sd">        To obtained the saved table, use the `load()` method.</span>
+
+<span class="sd">        :param df: Spark DataFrame or AxsFrame to save as AXS table.</span>
+<span class="sd">        :param tblname: Table name to use for saving.</span>
+<span class="sd">        :param repartition: Whether to repartition the data by zone before saving.</span>
+<span class="sd">        :param calculate_zone: Whether to first add `zone` and `dup` columns to `df`.</span>
+<span class="sd">        :param num_buckets: Number of buckets to use for data partitioning.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># if tblname in AxsCatalog._AXS_TABLES:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">tableExists</span><span class="p">(</span><span class="n">tblname</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Table already exists: &quot;</span> <span class="o">+</span> <span class="n">tblname</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">DEC_COLNAME</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">RA_COLNAME</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Cannot save as AXS table: &#39;&quot;</span><span class="o">+</span><span class="n">AxsCatalog</span><span class="o">.</span><span class="n">DEC_COLNAME</span><span class="o">+</span>
+                            <span class="s2">&quot;&#39; or &#39;&quot;</span><span class="o">+</span><span class="n">AxsCatalog</span><span class="o">.</span><span class="n">RA_COLNAME</span><span class="o">+</span><span class="s2">&quot;&#39; columns not found.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">ZONE_COLNAME</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">calculate_zone</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Cannot save as AXS table: &#39;&quot;</span><span class="o">+</span><span class="n">AxsCatalog</span><span class="o">.</span><span class="n">ZONE_COLNAME</span><span class="o">+</span>
+                            <span class="s2">&quot;&#39; column not found and calculate_zone is not set.&quot;</span><span class="p">)</span>
+
+        <span class="n">old_partitions_conf</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sql_ctx</span><span class="o">.</span><span class="n">getConf</span><span class="p">(</span><span class="s2">&quot;spark.sql.shuffle.partitions&quot;</span><span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">sql_ctx</span><span class="o">.</span><span class="n">setConf</span><span class="p">(</span><span class="s2">&quot;spark.sql.shuffle.partitions&quot;</span><span class="p">,</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">NUM_BUCKETS</span><span class="p">)</span>
+
+        <span class="n">newdf</span> <span class="o">=</span> <span class="n">df</span>
+        <span class="k">if</span> <span class="n">calculate_zone</span><span class="p">:</span>
+            <span class="n">newdf</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_zone</span><span class="p">(</span><span class="n">newdf</span><span class="p">,</span> <span class="n">zone_height</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">repartition</span><span class="p">:</span>
+            <span class="n">newdf</span> <span class="o">=</span> <span class="n">newdf</span><span class="o">.</span><span class="n">repartition</span><span class="p">(</span><span class="s2">&quot;zone&quot;</span><span class="p">)</span>
+
+        <span class="n">newdf</span><span class="o">.</span><span class="n">write</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;parquet&quot;</span><span class="p">)</span><span class="o">.</span> \
+            <span class="n">bucketBy</span><span class="p">(</span><span class="n">num_buckets</span><span class="p">,</span> <span class="s2">&quot;zone&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">sortBy</span><span class="p">(</span><span class="s2">&quot;zone&quot;</span><span class="p">,</span> <span class="s2">&quot;ra&quot;</span><span class="p">)</span><span class="o">.</span> \
+            <span class="n">saveAsTable</span><span class="p">(</span><span class="n">tblname</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">saveNewTable</span><span class="p">(</span><span class="n">tblname</span><span class="p">,</span> <span class="n">num_buckets</span><span class="p">,</span> <span class="n">zone_height</span><span class="p">,</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">ZONE_COLNAME</span><span class="p">,</span>
+                                                 <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">RA_COLNAME</span><span class="p">,</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">DEC_COLNAME</span><span class="p">,</span>
+                                                 <span class="kc">False</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">df</span><span class="o">.</span><span class="n">sql_ctx</span><span class="o">.</span><span class="n">setConf</span><span class="p">(</span><span class="s2">&quot;spark.sql.shuffle.partitions&quot;</span><span class="p">,</span> <span class="n">old_partitions_conf</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.calculate_zone"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.calculate_zone">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_zone</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">ZONE_HEIGHT</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Adds `zone` and `dup` columns to the `df` DataFrame. `df` needs to have a `dec` column</span>
+<span class="sd">        for calculating zones and must not already have `zone` and `dup` columns.</span>
+<span class="sd">        Data in the lower border strip of each zone is duplicated to the zone below it. `dup` column</span>
+<span class="sd">        of those rows contains 1 and 0 otherwise.</span>
+
+<span class="sd">        :param df: The input DataFrame for which to calculate</span>
+<span class="sd">        :param zone_height: Zone height to be used for data partitioning</span>
+<span class="sd">        :return: The new AxsFrame</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">ZONE_COLNAME</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Cannot save as AXS table: &#39;&quot;</span> <span class="o">+</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">ZONE_COLNAME</span> <span class="o">+</span>
+                            <span class="s2">&quot;&#39; column already exists.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">DUP_COLNAME</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;Cannot save as AXS table: &#39;&quot;</span><span class="o">+</span><span class="n">AxsCatalog</span><span class="o">.</span><span class="n">DUP_COLNAME</span><span class="o">+</span><span class="s2">&quot;&#39; column already exists&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">where</span><span class="p">(((</span><span class="n">df</span><span class="o">.</span><span class="n">dec</span> <span class="o">+</span> <span class="mi">90</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">zone_height</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">dec</span> <span class="o">+</span> <span class="mi">90</span><span class="p">)</span> <span class="o">%</span> <span class="n">zone_height</span> <span class="o">&lt;</span> <span class="n">AxsCatalog</span><span class="o">.</span><span class="n">NGBR_BORDER_HEIGHT</span><span class="p">))</span><span class="o">.</span>\
+                <span class="n">withColumn</span><span class="p">(</span><span class="s2">&quot;zone&quot;</span><span class="p">,</span> <span class="p">((</span><span class="n">df</span><span class="o">.</span><span class="n">dec</span> <span class="o">+</span> <span class="mi">90</span><span class="p">)</span> <span class="o">/</span> <span class="n">zone_height</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;long&quot;</span><span class="p">))</span><span class="o">.</span> \
+                <span class="n">withColumn</span><span class="p">(</span><span class="s2">&quot;dup&quot;</span><span class="p">,</span> <span class="n">F</span><span class="o">.</span><span class="n">lit</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span>\
+            <span class="n">union</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">withColumn</span><span class="p">(</span><span class="s2">&quot;zone&quot;</span><span class="p">,</span> <span class="p">((</span><span class="n">df</span><span class="o">.</span><span class="n">dec</span> <span class="o">+</span> <span class="mi">90</span><span class="p">)</span> <span class="o">/</span> <span class="n">zone_height</span><span class="p">)</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="s2">&quot;long&quot;</span><span class="p">))</span><span class="o">.</span>
+                <span class="n">withColumn</span><span class="p">(</span><span class="s2">&quot;dup&quot;</span><span class="p">,</span> <span class="n">F</span><span class="o">.</span><span class="n">lit</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.add_increment"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.add_increment">[docs]</a>    <span class="k">def</span> <span class="nf">add_increment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">increment_df</span><span class="p">,</span> <span class="n">rename_to</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">temp_tbl_name</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Adds a new batch of data contained in the `increment_df` DataFrame (or AxsFrame) to the</span>
+<span class="sd">        persisted AXS table `table_name`. The old table will be renamed to `rename_to`, if set, or to &quot;`table_name`</span>
+<span class="sd">        + _YYYYMMDDhhmm&quot; otherwise.</span>
+<span class="sd">        The data will be first saved into `temp_tbl_name` before renaming the main table.</span>
+
+<span class="sd">        `increment_df` needs to have the same schema as the table `table_name`.</span>
+
+<span class="sd">        :param table_name: The table to which to add the new data.</span>
+<span class="sd">        :param increment_df: The data to add to the existing table. Needs to have the appropriate schema.</span>
+<span class="sd">        :param rename_to: New table name for the original data.</span>
+<span class="sd">        :param temp_tbl_name: Temporary table name to use (`table_name` + &quot;_temp&quot; is the default) before rename operation.</span>
+<span class="sd">        :return: The table name to which the original table has been renamed</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">temp_tbl_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">temp_tbl_name</span> <span class="o">=</span> <span class="n">table_name</span> <span class="o">+</span> <span class="s2">&quot;_temp&quot;</span>
+        <span class="k">if</span> <span class="n">rename_to</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="kn">import</span> <span class="nn">datetime</span>
+            <span class="n">ts</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">%H%M&quot;</span><span class="p">)</span>
+            <span class="n">rename_to</span> <span class="o">=</span> <span class="n">table_name</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">ts</span>
+
+        <span class="n">old</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
+        <span class="n">old</span> <span class="o">=</span> <span class="n">old</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">old</span><span class="o">.</span><span class="n">dup</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_axs_table</span><span class="p">(</span><span class="n">old</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">calculate_zone</span><span class="p">(</span><span class="n">increment_df</span><span class="p">)),</span> <span class="n">temp_tbl_name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">rename_table</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">rename_to</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rename_table</span><span class="p">(</span><span class="n">temp_tbl_name</span><span class="p">,</span> <span class="n">table_name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">drop_table</span><span class="p">(</span><span class="n">temp_tbl_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">rename_to</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.rename_table"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.rename_table">[docs]</a>    <span class="k">def</span> <span class="nf">rename_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">new_name</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Renames an AxsTable `table_name` to `new_name`. Also renames the table in the</span>
+<span class="sd">        Spark catalog.</span>
+
+<span class="sd">        :param table_name: An existing table to rename.</span>
+<span class="sd">        :param new_name: The new name</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># if new_name in AxsCatalog._AXS_TABLES:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">tableExists</span><span class="p">(</span><span class="n">new_name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Table &quot;</span><span class="o">+</span><span class="n">new_name</span><span class="o">+</span><span class="s2">&quot; already exists!&quot;</span><span class="p">)</span>
+        <span class="c1"># if table_name not in AxsCatalog._AXS_TABLES:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">tableExists</span><span class="p">(</span><span class="n">table_name</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span><span class="s2">&quot;Table &quot;</span><span class="o">+</span><span class="n">table_name</span><span class="o">+</span><span class="s2">&quot; does not exist!&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">renameTable</span><span class="p">(</span><span class="n">table_name</span><span class="p">,</span> <span class="n">new_name</span><span class="p">)</span>
+        <span class="c1"># AxsCatalog._AXS_TABLES.remove(table_name)</span>
+        <span class="c1"># AxsCatalog._AXS_TABLES.append(new_name)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="s2">&quot;alter table &quot;</span> <span class="o">+</span> <span class="n">table_name</span> <span class="o">+</span> <span class="s2">&quot; rename to &quot;</span> <span class="o">+</span> <span class="n">new_name</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AxsCatalog.drop_table"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.drop_table">[docs]</a>    <span class="k">def</span> <span class="nf">drop_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">table_name</span><span class="p">,</span> <span class="n">drop_spark</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Drops a table from both AXS and Spark catalogs.</span>
+
+<span class="sd">        :param table_name: Table to drop.</span>
+<span class="sd">        :param drop_spark: Whether to drop the table in Spark catalog, too. Default is True.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">deleteTable</span><span class="p">(</span><span class="n">table_name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">drop_spark</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">spark</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="s2">&quot;drop table &quot;</span> <span class="o">+</span> <span class="n">table_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Mario Juric, Colin T. Slater, Petar Zecevic.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

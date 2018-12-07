@@ -1,0 +1,326 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>AxsCatalog &#8212; AXS 0.1 documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="AxsFrame" href="axsframe.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="axscatalog">
+<h1><cite>AxsCatalog</cite><a class="headerlink" href="#axscatalog" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="axs.catalog.AxsCatalog">
+<em class="property">class </em><code class="descclassname">axs.catalog.</code><code class="descname">AxsCatalog</code><span class="sig-paren">(</span><em>spark_session=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog" title="Permalink to this definition">¶</a></dt>
+<dd><p>Implements high-level operations on AXS tables, such as loading, saving, renaming and dropping. AXS tables are
+Spark Parquet tables, but are bucketed and sorted in a special way. <cite>AxsCatalog</cite> relies on Spark Catalog for
+loading table data and it needs an active <cite>SparkSession</cite> object (with Hive support enabled) for initialization.
+This is also necessary because information about available AXS tables is persisted in a special AXS table in Spark
+metastore DB.</p>
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.DEC_COLNAME">
+<code class="descname">DEC_COLNAME</code><em class="property"> = 'dec'</em><a class="headerlink" href="#axs.catalog.AxsCatalog.DEC_COLNAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.DUP_COLNAME">
+<code class="descname">DUP_COLNAME</code><em class="property"> = 'dup'</em><a class="headerlink" href="#axs.catalog.AxsCatalog.DUP_COLNAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.NGBR_BORDER_HEIGHT">
+<code class="descname">NGBR_BORDER_HEIGHT</code><em class="property"> = 0.002777777777777778</em><a class="headerlink" href="#axs.catalog.AxsCatalog.NGBR_BORDER_HEIGHT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.NUM_BUCKETS">
+<code class="descname">NUM_BUCKETS</code><em class="property"> = 500</em><a class="headerlink" href="#axs.catalog.AxsCatalog.NUM_BUCKETS" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.RA_COLNAME">
+<code class="descname">RA_COLNAME</code><em class="property"> = 'ra'</em><a class="headerlink" href="#axs.catalog.AxsCatalog.RA_COLNAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.ZONE_COLNAME">
+<code class="descname">ZONE_COLNAME</code><em class="property"> = 'zone'</em><a class="headerlink" href="#axs.catalog.AxsCatalog.ZONE_COLNAME" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="axs.catalog.AxsCatalog.ZONE_HEIGHT">
+<code class="descname">ZONE_HEIGHT</code><em class="property"> = 0.016666666666666666</em><a class="headerlink" href="#axs.catalog.AxsCatalog.ZONE_HEIGHT" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.add_increment">
+<code class="descname">add_increment</code><span class="sig-paren">(</span><em>table_name</em>, <em>increment_df</em>, <em>rename_to=None</em>, <em>temp_tbl_name=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.add_increment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.add_increment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds a new batch of data contained in the <cite>increment_df</cite> DataFrame (or AxsFrame) to the
+persisted AXS table <cite>table_name</cite>. The old table will be renamed to <cite>rename_to</cite>, if set, or to “<cite>table_name</cite>
++ _YYYYMMDDhhmm” otherwise.
+The data will be first saved into <cite>temp_tbl_name</cite> before renaming the main table.</p>
+<p><cite>increment_df</cite> needs to have the same schema as the table <cite>table_name</cite>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>table_name</strong> – The table to which to add the new data.</li>
+<li><strong>increment_df</strong> – The data to add to the existing table. Needs to have the appropriate schema.</li>
+<li><strong>rename_to</strong> – New table name for the original data.</li>
+<li><strong>temp_tbl_name</strong> – Temporary table name to use (<cite>table_name</cite> + “_temp” is the default) before rename operation.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The table name to which the original table has been renamed</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.calculate_zone">
+<code class="descname">calculate_zone</code><span class="sig-paren">(</span><em>df</em>, <em>zone_height=0.016666666666666666</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.calculate_zone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.calculate_zone" title="Permalink to this definition">¶</a></dt>
+<dd><p>Adds <cite>zone</cite> and <cite>dup</cite> columns to the <cite>df</cite> DataFrame. <cite>df</cite> needs to have a <cite>dec</cite> column
+for calculating zones and must not already have <cite>zone</cite> and <cite>dup</cite> columns.
+Data in the lower border strip of each zone is duplicated to the zone below it. <cite>dup</cite> column
+of those rows contains 1 and 0 otherwise.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>df</strong> – The input DataFrame for which to calculate</li>
+<li><strong>zone_height</strong> – Zone height to be used for data partitioning</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last">The new AxsFrame</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.drop_table">
+<code class="descname">drop_table</code><span class="sig-paren">(</span><em>table_name</em>, <em>drop_spark=True</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.drop_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.drop_table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Drops a table from both AXS and Spark catalogs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>table_name</strong> – Table to drop.</li>
+<li><strong>drop_spark</strong> – Whether to drop the table in Spark catalog, too. Default is True.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.import_existing_table">
+<code class="descname">import_existing_table</code><span class="sig-paren">(</span><em>table_name</em>, <em>path</em>, <em>num_buckets=500</em>, <em>zone_height=0.016666666666666666</em>, <em>import_into_spark=True</em>, <em>update_spark_bucketing=True</em>, <em>bucket_col='zone'</em>, <em>ra_col='ra'</em>, <em>dec_col='dec'</em>, <em>lightcurves=False</em>, <em>lc_cols=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.import_existing_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.import_existing_table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Imports an existing, properly bucketed and sorted Parquet file into AXS catalog.
+If <cite>import_into_spark</cite> is True, the table will also be imported into Spark catalog.</p>
+<p><cite>bucket_col</cite>, <cite>ra_col</cite> and <cite>dec_col</cite> allow for changing the default bucketing and sorting columns.</p>
+<p>If <cite>lightcurves</cite> is True, then some columns are expected to be array columns. Those are specified in <cite>lc_cols</cite>.
+array.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>table_name</strong> – The table name into which to import the data.</li>
+<li><strong>path</strong> – The path to the bucketed Parquet file to be imported (needed only for Spark import).</li>
+<li><strong>num_buckets</strong> – Number of buckets in the input Parquet file.</li>
+<li><strong>zone_height</strong> – Zone height used for data partitioning.</li>
+<li><strong>import_into_spark</strong> – Whether to also import the table into Spark. If <cite>False</cite>, the table should
+already exist in Spark metastore.</li>
+<li><strong>update_spark_bucketing</strong> – Whether to also update bucketing info in Spark metastore.</li>
+<li><strong>bucket_col</strong> – The column used for data bucketing.</li>
+<li><strong>ra_col</strong> – The name of column containing RA coordinates.</li>
+<li><strong>dec_col</strong> – The name of column containing DEC coordinates.</li>
+<li><strong>lightcurves</strong> – Whether the table contains lightcurve data as array columns.</li>
+<li><strong>lc_cols</strong> – Comma-separated list of names of array columns containing lightcurve data.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.list_tables">
+<code class="descname">list_tables</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.list_tables"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.list_tables" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of a known AxsFrame tables as a dictionary where the keys are table names and the values
+are again dictionaries with these fields:
+- <cite>table_id</cite> - Internal table ID
+- <cite>table_name</cite> - Name of the table
+- <cite>num_buckets</cite> - Number of buckets used for partitioning the table data
+- <cite>zone_height</cite> - Zone height used for data partitioning
+- <cite>bucket_col</cite> - the column name used for bucketing
+- <cite>ra_col</cite> - the column containing RA coordinates
+- <cite>dec_col</cite> - the column containing DEC coordinates
+- <cite>has_lightcurves</cite> - whether the table contains lightcurve data as array columns
+- <cite>lc_columns</cite> - a list of array columns containing lightcurve data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.load">
+<code class="descname">load</code><span class="sig-paren">(</span><em>table_name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.load"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads a known AXS table from a Spark catalog and returns it as an <cite>AxsFrame</cite>.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.rename_table">
+<code class="descname">rename_table</code><span class="sig-paren">(</span><em>table_name</em>, <em>new_name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.rename_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.rename_table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Renames an AxsTable <cite>table_name</cite> to <cite>new_name</cite>. Also renames the table in the
+Spark catalog.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>table_name</strong> – An existing table to rename.</li>
+<li><strong>new_name</strong> – The new name</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.save_axs_table">
+<code class="descname">save_axs_table</code><span class="sig-paren">(</span><em>df</em>, <em>tblname</em>, <em>repartition=True</em>, <em>calculate_zone=False</em>, <em>num_buckets=500</em>, <em>zone_height=0.016666666666666666</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.save_axs_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.save_axs_table" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves a Spark DataFrame as an AxsFrame under the name <cite>tblname</cite>. Also saves the
+table as a Spark table in the Spark catalog. The table will be bucketed into
+<cite>AxsCatalog.NUM_BUCKETS</cite> buckets, each bucket sorted by <cite>zone</cite> and <cite>ra</cite> columns.</p>
+<p>Note: If saving intermediate results from cross-matching two AxsFrames the DataFrame should
+already be partitioned appropriately. <cite>repartition</cite> should then be set to <cite>False</cite>
+to speed things up.</p>
+<p>To obtained the saved table, use the <cite>load()</cite> method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>df</strong> – Spark DataFrame or AxsFrame to save as AXS table.</li>
+<li><strong>tblname</strong> – Table name to use for saving.</li>
+<li><strong>repartition</strong> – Whether to repartition the data by zone before saving.</li>
+<li><strong>calculate_zone</strong> – Whether to first add <cite>zone</cite> and <cite>dup</cite> columns to <cite>df</cite>.</li>
+<li><strong>num_buckets</strong> – Number of buckets to use for data partitioning.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.table_info">
+<code class="descname">table_info</code><span class="sig-paren">(</span><em>table_name</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.table_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.table_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a known AxsFrame table info as a dictionary with these keys:
+- <cite>table_id</cite> - Internal table ID
+- <cite>table_name</cite> - Name of the table
+- <cite>num_buckets</cite> - Number of buckets used for partitioning the table data
+- <cite>zone_height</cite> - Zone height used for data partitioning
+- <cite>bucket_col</cite> - the column name used for bucketing
+- <cite>ra_col</cite> - the column containing RA coordinates
+- <cite>dec_col</cite> - the column containing DEC coordinates
+- <cite>has_lightcurves</cite> - whether the table contains lightcurve data as array columns
+- <cite>lc_columns</cite> - a list of array columns containing lightcurve data</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>table_name</strong> – Table name for which to fetch info.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="axsframe.html" title="previous chapter"><cite>AxsFrame</cite></a></li>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/api/catalog.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Mario Juric, Colin T. Slater, Petar Zecevic.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="../_sources/api/catalog.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

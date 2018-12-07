@@ -1,0 +1,305 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>sphinx.ext.autodoc.importer &#8212; AXS 0.1 documentation</title>
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for sphinx.ext.autodoc.importer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    sphinx.ext.autodoc.importer</span>
+<span class="sd">    ~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
+
+<span class="sd">    Importer utilities for autodoc</span>
+
+<span class="sd">    :copyright: Copyright 2007-2018 by the Sphinx team, see AUTHORS.</span>
+<span class="sd">    :license: BSD, see LICENSE for details.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">contextlib</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">traceback</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">types</span> <span class="k">import</span> <span class="n">FunctionType</span><span class="p">,</span> <span class="n">MethodType</span><span class="p">,</span> <span class="n">ModuleType</span>
+
+<span class="kn">from</span> <span class="nn">six</span> <span class="k">import</span> <span class="n">PY2</span>
+
+<span class="kn">from</span> <span class="nn">sphinx.util</span> <span class="k">import</span> <span class="n">logging</span>
+<span class="kn">from</span> <span class="nn">sphinx.util.inspect</span> <span class="k">import</span> <span class="n">isenumclass</span><span class="p">,</span> <span class="n">safe_getattr</span>
+
+<span class="k">if</span> <span class="kc">False</span><span class="p">:</span>
+    <span class="c1"># For type annotation</span>
+    <span class="kn">from</span> <span class="nn">typing</span> <span class="k">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span>  <span class="c1"># NOQA</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">_MockObject</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Used by autodoc_mock_imports.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c1"># type: (Any, Any) -&gt; None</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># type: () -&gt; int</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">def</span> <span class="nf">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="c1"># type: (str) -&gt; bool</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># type: () -&gt; None</span>
+        <span class="k">pass</span>
+
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="c1"># type: (str) -&gt; _MockObject</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="c1"># type: (str) -&gt; _MockObject</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+        <span class="c1"># type: (Any, Any) -&gt; Any</span>
+        <span class="k">if</span> <span class="n">args</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="ow">in</span> <span class="p">[</span><span class="n">FunctionType</span><span class="p">,</span> <span class="n">MethodType</span><span class="p">]:</span>
+            <span class="c1"># Appears to be a decorator, pass through unchanged</span>
+            <span class="k">return</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+
+<span class="k">class</span> <span class="nc">_MockModule</span><span class="p">(</span><span class="n">ModuleType</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Used by autodoc_mock_imports.&quot;&quot;&quot;</span>
+    <span class="vm">__file__</span> <span class="o">=</span> <span class="s1">&#39;/dev/null&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">loader</span><span class="p">):</span>
+        <span class="c1"># type: (str, _MockImporter) -&gt; None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__package__</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__loader__</span> <span class="o">=</span> <span class="n">loader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__all__</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># type: List[str]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__path__</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># type: List[str]</span>
+
+    <span class="k">def</span> <span class="nf">__getattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="c1"># type: (str) -&gt; _MockObject</span>
+        <span class="n">o</span> <span class="o">=</span> <span class="n">_MockObject</span><span class="p">()</span>
+        <span class="n">o</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">return</span> <span class="n">o</span>
+
+
+<span class="k">class</span> <span class="nc">_MockImporter</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">names</span><span class="p">):</span>
+        <span class="c1"># type: (List[str]) -&gt; None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">names</span> <span class="o">=</span> <span class="n">names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mocked_modules</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># type: List[str]</span>
+        <span class="c1"># enable hook by adding itself to meta_path</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">meta_path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">disable</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># remove `self` from `sys.meta_path` to disable import hook</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">meta_path</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">meta_path</span> <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="p">]</span>
+        <span class="c1"># remove mocked modules from sys.modules to avoid side effects after</span>
+        <span class="c1"># running auto-documenter</span>
+        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mocked_modules</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">m</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">find_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># type: (str, str) -&gt; Any</span>
+        <span class="c1"># check if name is (or is a descendant of) one of our base_packages</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">n</span> <span class="o">+</span> <span class="s1">&#39;.&#39;</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">load_module</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="c1"># type: (str) -&gt; ModuleType</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
+            <span class="c1"># module has already been imported, return it</span>
+            <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[autodoc] adding a mock module </span><span class="si">%s</span><span class="s1">!&#39;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="n">module</span> <span class="o">=</span> <span class="n">_MockModule</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">module</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mocked_modules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">module</span>
+
+
+<span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span> <span class="nf">mock</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+    <span class="c1"># type: (List[str]) -&gt; Generator</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">importer</span> <span class="o">=</span> <span class="n">_MockImporter</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+        <span class="k">yield</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">importer</span><span class="o">.</span><span class="n">disable</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">import_module</span><span class="p">(</span><span class="n">modname</span><span class="p">,</span> <span class="n">warningiserror</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Call __import__(modname), convert exceptions to ImportError</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="n">warnings</span><span class="o">.</span><span class="n">catch_warnings</span><span class="p">():</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">filterwarnings</span><span class="p">(</span><span class="s2">&quot;ignore&quot;</span><span class="p">,</span> <span class="n">category</span><span class="o">=</span><span class="ne">ImportWarning</span><span class="p">)</span>
+            <span class="k">with</span> <span class="n">logging</span><span class="o">.</span><span class="n">skip_warningiserror</span><span class="p">(</span><span class="ow">not</span> <span class="n">warningiserror</span><span class="p">):</span>
+                <span class="nb">__import__</span><span class="p">(</span><span class="n">modname</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">[</span><span class="n">modname</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">BaseException</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="c1"># Importing modules may cause any side effects, including</span>
+        <span class="c1"># SystemExit, so we need to catch all errors.</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">())</span>
+
+
+<span class="k">def</span> <span class="nf">import_object</span><span class="p">(</span><span class="n">modname</span><span class="p">,</span> <span class="n">objpath</span><span class="p">,</span> <span class="n">objtype</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">attrgetter</span><span class="o">=</span><span class="n">safe_getattr</span><span class="p">,</span> <span class="n">warningiserror</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="c1"># type: (str, List[unicode], str, Callable[[Any, unicode], Any], bool) -&gt; Any</span>
+    <span class="k">if</span> <span class="n">objpath</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[autodoc] from </span><span class="si">%s</span><span class="s1"> import </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">modname</span><span class="p">,</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">objpath</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[autodoc] import </span><span class="si">%s</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">modname</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">module</span> <span class="o">=</span> <span class="n">import_module</span><span class="p">(</span><span class="n">modname</span><span class="p">,</span> <span class="n">warningiserror</span><span class="o">=</span><span class="n">warningiserror</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[autodoc] =&gt; </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">module</span><span class="p">)</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">module</span>
+        <span class="n">parent</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">object_name</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">attrname</span> <span class="ow">in</span> <span class="n">objpath</span><span class="p">:</span>
+            <span class="n">parent</span> <span class="o">=</span> <span class="n">obj</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[autodoc] getattr(_, </span><span class="si">%r</span><span class="s1">)&#39;</span><span class="p">,</span> <span class="n">attrname</span><span class="p">)</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">attrgetter</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">attrname</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s1">&#39;[autodoc] =&gt; </span><span class="si">%r</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">obj</span><span class="p">)</span>
+            <span class="n">object_name</span> <span class="o">=</span> <span class="n">attrname</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">module</span><span class="p">,</span> <span class="n">parent</span><span class="p">,</span> <span class="n">object_name</span><span class="p">,</span> <span class="n">obj</span><span class="p">]</span>
+    <span class="k">except</span> <span class="p">(</span><span class="ne">AttributeError</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">objpath</span><span class="p">:</span>
+            <span class="n">errmsg</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;autodoc: failed to import </span><span class="si">%s</span><span class="s1"> </span><span class="si">%r</span><span class="s1"> from module </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span>
+                      <span class="p">(</span><span class="n">objtype</span><span class="p">,</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">objpath</span><span class="p">),</span> <span class="n">modname</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">errmsg</span> <span class="o">=</span> <span class="s1">&#39;autodoc: failed to import </span><span class="si">%s</span><span class="s1"> </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="p">(</span><span class="n">objtype</span><span class="p">,</span> <span class="n">modname</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">):</span>
+            <span class="c1"># import_module() raises ImportError having real exception obj and</span>
+            <span class="c1"># traceback</span>
+            <span class="n">real_exc</span><span class="p">,</span> <span class="n">traceback_msg</span> <span class="o">=</span> <span class="n">exc</span><span class="o">.</span><span class="n">args</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">real_exc</span><span class="p">,</span> <span class="ne">SystemExit</span><span class="p">):</span>
+                <span class="n">errmsg</span> <span class="o">+=</span> <span class="p">(</span><span class="s1">&#39;; the module executes module level statement &#39;</span>
+                           <span class="s1">&#39;and it might call sys.exit().&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">real_exc</span><span class="p">,</span> <span class="ne">ImportError</span><span class="p">)</span> <span class="ow">and</span> <span class="n">real_exc</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+                <span class="n">errmsg</span> <span class="o">+=</span> <span class="s1">&#39;; the following exception was raised:</span><span class="se">\n</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">real_exc</span><span class="o">.</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">errmsg</span> <span class="o">+=</span> <span class="s1">&#39;; the following exception was raised:</span><span class="se">\n</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">traceback_msg</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">errmsg</span> <span class="o">+=</span> <span class="s1">&#39;; the following exception was raised:</span><span class="se">\n</span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">PY2</span><span class="p">:</span>
+            <span class="n">errmsg</span> <span class="o">=</span> <span class="n">errmsg</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf-8&#39;</span><span class="p">)</span>  <span class="c1"># type: ignore</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="n">errmsg</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span><span class="n">errmsg</span><span class="p">)</span>
+
+
+<span class="n">Attribute</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Attribute&#39;</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">,</span> <span class="s1">&#39;directly_defined&#39;</span><span class="p">,</span> <span class="s1">&#39;value&#39;</span><span class="p">])</span>
+
+
+<span class="k">def</span> <span class="nf">get_object_members</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">objpath</span><span class="p">,</span> <span class="n">attrgetter</span><span class="p">,</span> <span class="n">analyzer</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="c1"># type: (Any, List[unicode], Callable, Any) -&gt; Dict[str, Attribute]  # NOQA</span>
+    <span class="sd">&quot;&quot;&quot;Get members and attributes of target object.&quot;&quot;&quot;</span>
+    <span class="c1"># the members directly defined in the class</span>
+    <span class="n">obj_dict</span> <span class="o">=</span> <span class="n">attrgetter</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="s1">&#39;__dict__&#39;</span><span class="p">,</span> <span class="p">{})</span>
+
+    <span class="c1"># Py34 doesn&#39;t have enum members in __dict__.</span>
+    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="ow">and</span> <span class="n">isenumclass</span><span class="p">(</span><span class="n">subject</span><span class="p">):</span>
+        <span class="n">obj_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">obj_dict</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">subject</span><span class="o">.</span><span class="n">__members__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">obj_dict</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="n">members</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">subject</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">attrgetter</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+            <span class="n">directly_defined</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">obj_dict</span>
+            <span class="n">members</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">Attribute</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">directly_defined</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+    <span class="k">if</span> <span class="n">analyzer</span><span class="p">:</span>
+        <span class="c1"># append instance attributes (cf. self.attr1) if analyzer knows</span>
+        <span class="kn">from</span> <span class="nn">sphinx.ext.autodoc</span> <span class="k">import</span> <span class="n">INSTANCEATTR</span>
+
+        <span class="n">namespace</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">objpath</span><span class="p">)</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">ns</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span> <span class="ow">in</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">find_attr_docs</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">namespace</span> <span class="o">==</span> <span class="n">ns</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">members</span><span class="p">:</span>
+                <span class="n">members</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">Attribute</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">INSTANCEATTR</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">members</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Mario Juric, Colin T. Slater, Petar Zecevic.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.7.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
