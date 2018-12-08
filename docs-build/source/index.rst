@@ -16,7 +16,7 @@ and the repository containing `Spark changes <https://github.com/dirac-institute
 To report a bug please send an email to one of the following addresses: pzecevic@uw.edu,
 ctslater@uw.edu, and mjuric@uw.edu
 
-If you wish to cite AXS in a scientific paper, please use the following reference: TBD.
+The AXS paper is in preparation and the citation reference will be posted here once it's published.
 
 
 .. toctree::

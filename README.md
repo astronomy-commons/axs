@@ -23,3 +23,5 @@ And you're good to go!
 # Further reading
 Read more about starting and using AXS, and its architecture, in 
 the [documentation](https://dirac-institute.github.io/AXS).
+
+A paper discribing AXS is in preparation so make sure to check back if you need to cite AXS.
