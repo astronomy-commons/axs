@@ -206,6 +206,9 @@ class AxsFrame(DataFrame):
         Selects the rows containing objects falling into a 'cone' defined by `ra` and `dec` center point
         and the radius `r`.
 
+        The function still doesn't handle the situation when the cone overlaps one of the poles. In that case
+        maximum and minimum dec coordinates are clipped at the poles.
+
         :param ra: Ra of the center point. Has to be inside [0, 360).
         :param dec: Dec of the center point. Has to be inside [-90, 90].
         :param r: Radius of the search cone in degrees. Has to be inside (0, 90].
@@ -352,7 +355,7 @@ class AxsFrame(DataFrame):
         :param calculate_zone: Whether to calculate the `zone` column.
         """
         from axs.catalog import AxsCatalog
-        AxsCatalog(None).save_axs_table(self, tblname, calculate_zone)
+        AxsCatalog(None).save_axs_table(self, tblname, True, calculate_zone)
 
     def add_primitive_column(self, colname, coltype, func, *col_names):
         """

@@ -6,10 +6,12 @@ import java.util.*;
 import org.apache.spark.sql.SparkSession;
 
 public class CatalogUtils {
-    private static String DRIVER_CLSS = null;
+    private static String DRIVER_CLASS = null;
     private static String DB_URL = null;
     private static String DB_USER = null;
     private static String DB_PASS = null;
+
+    private static String HIVE_SCHEMA = "";
 
     public static void setup(SparkSession spark) {
         String driver = spark.sparkContext().hadoopConfiguration().get("javax.jdo.option.ConnectionDriverName");
@@ -28,15 +30,18 @@ public class CatalogUtils {
         }
     }
     public static void setCredentials(String driverCls, String url, String user, String pass) {
-        DRIVER_CLSS = driverCls;
+        DRIVER_CLASS = driverCls;
         DB_URL = url;
         DB_USER = user;
         DB_PASS = pass;
+
+        if(DRIVER_CLASS.contains("derby"))
+            HIVE_SCHEMA = "APP.";
     }
 
     private static Connection getConnection() throws Exception {
         try {
-            Class.forName(DRIVER_CLSS);
+            Class.forName(DRIVER_CLASS);
             Connection conn = java.sql.DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
             return conn;
         } catch(Exception e) {
@@ -44,7 +49,7 @@ public class CatalogUtils {
             throw new Exception("Configuration error: connection not available.");
         }
     }
-    
+
     public static boolean updateSparkMetastoreBucketing(String tableName, int numBuckets) throws Exception {
         Connection conn = getConnection();
         Statement stmt = conn.createStatement();
@@ -55,45 +60,45 @@ public class CatalogUtils {
                 throw new Exception("Table "+tableName+" does not exist.");
             try {
                 try {
-                    stmt.executeUpdate("insert into TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
+                    stmt.executeUpdate("insert into "+HIVE_SCHEMA+"TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
                         "("+tblid+", 'spark.sql.sources.schema.numSortCols', '2')");
                 } catch(SQLException sqle) {
-                    stmt.executeUpdate("update TABLE_PARAMS SET PARAM_VALUE = '2'" +
+                    stmt.executeUpdate("update "+HIVE_SCHEMA+"TABLE_PARAMS SET PARAM_VALUE = '2'" +
                             "where TBL_ID = "+tblid+" AND PARAM_KEY = 'spark.sql.sources.schema.numSortCols'");
                 }
                 try {
-                    stmt.executeUpdate("insert into TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
+                    stmt.executeUpdate("insert into "+HIVE_SCHEMA+"TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
                             "("+tblid+", 'spark.sql.sources.schema.numBuckets', '"+numBuckets+"')");
                 } catch(SQLException sqle) {
-                    stmt.executeUpdate("update TABLE_PARAMS SET PARAM_VALUE = '"+numBuckets+"'" +
+                    stmt.executeUpdate("update "+HIVE_SCHEMA+"TABLE_PARAMS SET PARAM_VALUE = '"+numBuckets+"'" +
                             "where TBL_ID = "+tblid+" AND PARAM_KEY = 'spark.sql.sources.schema.numBuckets'");
                 }
                 try {
-                    stmt.executeUpdate("insert into TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
+                    stmt.executeUpdate("insert into "+HIVE_SCHEMA+"TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
                             "("+tblid+", 'spark.sql.sources.schema.numBucketCols', '1')");
                 } catch(SQLException sqle) {
-                    stmt.executeUpdate("update TABLE_PARAMS SET PARAM_VALUE = '1'" +
+                    stmt.executeUpdate("update "+HIVE_SCHEMA+"TABLE_PARAMS SET PARAM_VALUE = '1'" +
                             "where TBL_ID = "+tblid+" AND PARAM_KEY = 'spark.sql.sources.schema.numBucketCols'");
                 }
                 try {
-                    stmt.executeUpdate("insert into TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
+                    stmt.executeUpdate("insert into "+HIVE_SCHEMA+"TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
                             "("+tblid+", 'spark.sql.sources.schema.bucketCol.0', 'zone')");
                 } catch(SQLException sqle) {
-                    stmt.executeUpdate("update TABLE_PARAMS SET PARAM_VALUE = 'zone'" +
+                    stmt.executeUpdate("update "+HIVE_SCHEMA+"TABLE_PARAMS SET PARAM_VALUE = 'zone'" +
                             "where TBL_ID = "+tblid+" AND PARAM_KEY = 'spark.sql.sources.schema.bucketCol.0'");
                 }
                 try {
-                    stmt.executeUpdate("insert into TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
+                    stmt.executeUpdate("insert into "+HIVE_SCHEMA+"TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
                             "("+tblid+", 'spark.sql.sources.schema.sortCol.0', 'zone')");
                 } catch(SQLException sqle) {
-                    stmt.executeUpdate("update TABLE_PARAMS SET PARAM_VALUE = 'zone'" +
+                    stmt.executeUpdate("update "+HIVE_SCHEMA+"TABLE_PARAMS SET PARAM_VALUE = 'zone'" +
                             "where TBL_ID = "+tblid+" AND PARAM_KEY = 'spark.sql.sources.schema.sortCol.0'");
                 }
                 try {
-                    stmt.executeUpdate("insert into TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
+                    stmt.executeUpdate("insert into "+HIVE_SCHEMA+"TABLE_PARAMS (TBL_ID, PARAM_KEY, PARAM_VALUE) VALUES " +
                             "("+tblid+", 'spark.sql.sources.schema.sortCol.1', 'ra')");
                 } catch(SQLException sqle) {
-                    stmt.executeUpdate("update TABLE_PARAMS SET PARAM_VALUE = 'ra'" +
+                    stmt.executeUpdate("update "+HIVE_SCHEMA+"TABLE_PARAMS SET PARAM_VALUE = 'ra'" +
                             "where TBL_ID = "+tblid+" AND PARAM_KEY = 'spark.sql.sources.schema.sortCol.1'");
                 }
                 return true;
@@ -126,7 +131,7 @@ public class CatalogUtils {
     }
 
     private static int getSparkTableId(String tableName, Statement stmt) throws SQLException {
-        ResultSet rs = stmt.executeQuery("SELECT TBL_ID from TBLS where TBL_NAME = '"+tableName.toLowerCase()+"'");
+        ResultSet rs = stmt.executeQuery("SELECT TBL_ID from "+HIVE_SCHEMA+"TBLS where TBL_NAME = '"+tableName.toLowerCase()+"'");
         int tblid = -1;
         if(rs.next()) {
             tblid = rs.getInt(1);
