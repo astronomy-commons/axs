@@ -5,7 +5,7 @@ Python API to enable fast cross-matching, querying and analysis of data
 from astronomical catalogs.
 
 # Prerequisites
-Before running AXS make sure you have Java (at least v.8) installed and JAVA_HOME variable set.
+Before running AXS make sure you have Java v8 installed and JAVA_HOME variable set.
 
 You will also need Python 3 with numpy, pandas and arrow packages.
 
