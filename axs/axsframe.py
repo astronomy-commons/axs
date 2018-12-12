@@ -157,7 +157,7 @@ class AxsFrame(DataFrame):
                       "Fast crossmatch is not possible. "
                       "Switching to the slower crossmatch algorithm version.\n")
                 use_smj_optim = False
-            if self._table_info['zone_height'] != axsframe._table_info['zone_height']:
+            if int(self._table_info['zone_height'] * 1e10)/1e10 != int(axsframe._table_info['zone_height'] * 1e10)/1e10:
                 print("\nWARNING: the two tables don't have the same zone height. "
                       "Fast crossmatch is not possible. "
                       "Switching to the slower crossmatch algorithm version.\n")
