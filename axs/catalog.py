@@ -134,6 +134,16 @@ class AxsCatalog:
                 'lc_columns': x.getLcColumns()}
         return res
 
+    def list_tables_names(self):
+        """
+        Returns a list of a known AxsFrame table names.
+        """
+        tbls = self._CatalogUtils.listTables()
+        res = []
+        for x in tbls:
+            res.append(x.getTableName())
+        return res
+
     def save_axs_table(self, df, tblname, repartition=True, calculate_zone=False,
                        num_buckets=Constants.NUM_BUCKETS, zone_height=ZONE_HEIGHT):
         """

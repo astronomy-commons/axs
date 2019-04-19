@@ -276,8 +276,8 @@ public class CatalogUtils {
         public boolean lightcurves;
         public String[] lcColumns;
 
-        public String getTableId() {
-            return tableName;
+        public int getTableId() {
+            return tableId;
         }
 
         public String getTableName() {
