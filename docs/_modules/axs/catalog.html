@@ -166,6 +166,16 @@
                 <span class="s1">&#39;lc_columns&#39;</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">getLcColumns</span><span class="p">()}</span>
         <span class="k">return</span> <span class="n">res</span></div>
 
+<div class="viewcode-block" id="AxsCatalog.list_table_names"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.list_table_names">[docs]</a>    <span class="k">def</span> <span class="nf">list_table_names</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns a list of a known AxsFrame table names.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">tbls</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_CatalogUtils</span><span class="o">.</span><span class="n">listTables</span><span class="p">()</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">tbls</span><span class="p">:</span>
+            <span class="n">res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">getTableName</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
 <div class="viewcode-block" id="AxsCatalog.save_axs_table"><a class="viewcode-back" href="../../api/catalog.html#axs.catalog.AxsCatalog.save_axs_table">[docs]</a>    <span class="k">def</span> <span class="nf">save_axs_table</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">,</span> <span class="n">tblname</span><span class="p">,</span> <span class="n">repartition</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">calculate_zone</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
                        <span class="n">num_buckets</span><span class="o">=</span><span class="n">Constants</span><span class="o">.</span><span class="n">NUM_BUCKETS</span><span class="p">,</span> <span class="n">zone_height</span><span class="o">=</span><span class="n">ZONE_HEIGHT</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -311,7 +321,21 @@
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><div class="relations">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="../../index.html">Table Of Contents</a></h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../introduction.html">Introduction to AXS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">AXS Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started.html">Starting AXS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../importing_data.html">Importing catalog data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../using.html">Using AXS</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../api/axsframe.html"><cite>AxsFrame</cite></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api/catalog.html"><cite>AxsCatalog</cite></a></li>
+</ul>
+<div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="../../index.html">Documentation overview</a><ul>

@@ -52,7 +52,7 @@ metastore DB.</p>
 
 <dl class="attribute">
 <dt id="axs.catalog.AxsCatalog.NGBR_BORDER_HEIGHT">
-<code class="descname">NGBR_BORDER_HEIGHT</code><em class="property"> = 0.002777777777777778</em><a class="headerlink" href="#axs.catalog.AxsCatalog.NGBR_BORDER_HEIGHT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">NGBR_BORDER_HEIGHT</code><em class="property"> = 0.0027777770000000004</em><a class="headerlink" href="#axs.catalog.AxsCatalog.NGBR_BORDER_HEIGHT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="attribute">
@@ -72,7 +72,7 @@ metastore DB.</p>
 
 <dl class="attribute">
 <dt id="axs.catalog.AxsCatalog.ZONE_HEIGHT">
-<code class="descname">ZONE_HEIGHT</code><em class="property"> = 0.016666666666666666</em><a class="headerlink" href="#axs.catalog.AxsCatalog.ZONE_HEIGHT" title="Permalink to this definition">¶</a></dt>
+<code class="descname">ZONE_HEIGHT</code><em class="property"> = 0.0166666666</em><a class="headerlink" href="#axs.catalog.AxsCatalog.ZONE_HEIGHT" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="method">
@@ -104,7 +104,7 @@ The data will be first saved into <cite>temp_tbl_name</cite> before renaming the
 
 <dl class="method">
 <dt id="axs.catalog.AxsCatalog.calculate_zone">
-<code class="descname">calculate_zone</code><span class="sig-paren">(</span><em>df</em>, <em>zone_height=0.016666666666666666</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.calculate_zone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.calculate_zone" title="Permalink to this definition">¶</a></dt>
+<code class="descname">calculate_zone</code><span class="sig-paren">(</span><em>df</em>, <em>zone_height=0.0166666666</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.calculate_zone"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.calculate_zone" title="Permalink to this definition">¶</a></dt>
 <dd><p>Adds <cite>zone</cite> and <cite>dup</cite> columns to the <cite>df</cite> DataFrame. <cite>df</cite> needs to have a <cite>dec</cite> column
 for calculating zones and must not already have <cite>zone</cite> and <cite>dup</cite> columns.
 Data in the lower border strip of each zone is duplicated to the zone below it. <cite>dup</cite> column
@@ -146,7 +146,7 @@ of those rows contains 1 and 0 otherwise.</p>
 
 <dl class="method">
 <dt id="axs.catalog.AxsCatalog.import_existing_table">
-<code class="descname">import_existing_table</code><span class="sig-paren">(</span><em>table_name</em>, <em>path</em>, <em>num_buckets=500</em>, <em>zone_height=0.016666666666666666</em>, <em>import_into_spark=True</em>, <em>update_spark_bucketing=True</em>, <em>bucket_col='zone'</em>, <em>ra_col='ra'</em>, <em>dec_col='dec'</em>, <em>lightcurves=False</em>, <em>lc_cols=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.import_existing_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.import_existing_table" title="Permalink to this definition">¶</a></dt>
+<code class="descname">import_existing_table</code><span class="sig-paren">(</span><em>table_name</em>, <em>path</em>, <em>num_buckets=500</em>, <em>zone_height=0.0166666666</em>, <em>import_into_spark=True</em>, <em>update_spark_bucketing=True</em>, <em>bucket_col='zone'</em>, <em>ra_col='ra'</em>, <em>dec_col='dec'</em>, <em>lightcurves=False</em>, <em>lc_cols=None</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.import_existing_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.import_existing_table" title="Permalink to this definition">¶</a></dt>
 <dd><p>Imports an existing, properly bucketed and sorted Parquet file into AXS catalog.
 If <cite>import_into_spark</cite> is True, the table will also be imported into Spark catalog.</p>
 <p><cite>bucket_col</cite>, <cite>ra_col</cite> and <cite>dec_col</cite> allow for changing the default bucketing and sorting columns.</p>
@@ -174,6 +174,12 @@ already exist in Spark metastore.</li>
 </tr>
 </tbody>
 </table>
+</dd></dl>
+
+<dl class="method">
+<dt id="axs.catalog.AxsCatalog.list_table_names">
+<code class="descname">list_table_names</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.list_table_names"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.list_table_names" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list of a known AxsFrame table names.</p>
 </dd></dl>
 
 <dl class="method">
@@ -219,7 +225,7 @@ Spark catalog.</p>
 
 <dl class="method">
 <dt id="axs.catalog.AxsCatalog.save_axs_table">
-<code class="descname">save_axs_table</code><span class="sig-paren">(</span><em>df</em>, <em>tblname</em>, <em>repartition=True</em>, <em>calculate_zone=False</em>, <em>num_buckets=500</em>, <em>zone_height=0.016666666666666666</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.save_axs_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.save_axs_table" title="Permalink to this definition">¶</a></dt>
+<code class="descname">save_axs_table</code><span class="sig-paren">(</span><em>df</em>, <em>tblname</em>, <em>repartition=True</em>, <em>calculate_zone=False</em>, <em>num_buckets=500</em>, <em>zone_height=0.0166666666</em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/axs/catalog.html#AxsCatalog.save_axs_table"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#axs.catalog.AxsCatalog.save_axs_table" title="Permalink to this definition">¶</a></dt>
 <dd><p>Saves a Spark DataFrame as an AxsFrame under the name <cite>tblname</cite>. Also saves the
 table as a Spark table in the Spark catalog. The table will be bucketed into
 <cite>AxsCatalog.NUM_BUCKETS</cite> buckets, each bucket sorted by <cite>zone</cite> and <cite>ra</cite> columns.</p>
@@ -276,7 +282,21 @@ to speed things up.</p>
         </div>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper"><div class="relations">
+        <div class="sphinxsidebarwrapper">
+<h3><a href="../index.html">Table Of Contents</a></h3>
+<p class="caption"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../introduction.html">Introduction to AXS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">AXS Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../getting_started.html">Starting AXS</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../importing_data.html">Importing catalog data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../using.html">Using AXS</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="axsframe.html"><cite>AxsFrame</cite></a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#"><cite>AxsCatalog</cite></a></li>
+</ul>
+<div class="relations">
 <h3>Related Topics</h3>
 <ul>
   <li><a href="../index.html">Documentation overview</a><ul>
