@@ -134,7 +134,7 @@ class AxsCatalog:
                 'lc_columns': x.getLcColumns()}
         return res
 
-    def list_tables_names(self):
+    def list_table_names(self):
         """
         Returns a list of a known AxsFrame table names.
         """
