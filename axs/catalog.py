@@ -176,7 +176,7 @@ class AxsCatalog:
                             "' column not found and calculate_zone is not set.")
 
         old_partitions_conf = df.sql_ctx.getConf("spark.sql.shuffle.partitions")
-        df.sql_ctx.setConf("spark.sql.shuffle.partitions", AxsCatalog.NUM_BUCKETS)
+        df.sql_ctx.setConf("spark.sql.shuffle.partitions", num_buckets)
 
         newdf = df
         if calculate_zone:
