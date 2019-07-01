@@ -13,10 +13,9 @@ The source code is hosted at two GitHub repositories: the repository containing
 `AXS API <https://github.com/dirac-institute/AXS>`__
 and the repository containing `Spark changes <https://github.com/dirac-institute/spark>`__
 
-To report a bug please send an email to one of the following addresses: pzecevic@uw.edu,
-ctslater@uw.edu, and mjuric@uw.edu
+To report a bug please file an issue `here <https://github.com/dirac-institute/AXS/issues>`__
 
-The AXS paper is in preparation and the citation reference will be posted here once it's published.
+If you are using AXS in your scientific work please cite the following `paper <https://doi.org/10.3847/1538-3881/ab2384>`__
 
 
 .. toctree::
