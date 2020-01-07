@@ -145,8 +145,7 @@ class AxsCatalog:
         return res
 
     def save_axs_table(self, df, tblname, repartition=True, calculate_zone=False,
-                       num_buckets=Constants.NUM_BUCKETS, zone_height=ZONE_HEIGHT,
-                       path=None):
+                       num_buckets=Constants.NUM_BUCKETS, zone_height=ZONE_HEIGHT):
         """
         Saves a Spark DataFrame as an AxsFrame under the name `tblname`. Also saves the
         table as a Spark table in the Spark catalog. The table will be bucketed into
@@ -163,7 +162,6 @@ class AxsCatalog:
         :param repartition: Whether to repartition the data by zone before saving.
         :param calculate_zone: Whether to first add `zone` and `dup` columns to `df`.
         :param num_buckets: Number of buckets to use for data partitioning.
-        :param path: Optional path under which to save the table data. Note: all files under `path` will be deleted.
         """
         # if tblname in AxsCatalog._AXS_TABLES:
         if self._CatalogUtils.tableExists(tblname):
@@ -185,15 +183,9 @@ class AxsCatalog:
         if repartition:
             newdf = newdf.repartition("zone")
 
-        writer = newdf.write.format("parquet"). \
-            bucketBy(num_buckets, "zone").sortBy("zone", "ra")
-
-        if path is not None:
-            writer.option("path", path)
-
-        writer.saveAsTable(tblname)
-
-        # this modifies bucketing information in the Spark metastore
+        newdf.write.format("parquet"). \
+            bucketBy(num_buckets, "zone").sortBy("zone", "ra"). \
+            saveAsTable(tblname)
         self._CatalogUtils.saveNewTable(tblname, num_buckets, zone_height, AxsCatalog.ZONE_COLNAME,
                                                  AxsCatalog.RA_COLNAME, AxsCatalog.DEC_COLNAME,
                                                  False, None)
