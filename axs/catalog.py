@@ -163,7 +163,8 @@ class AxsCatalog:
         :param repartition: Whether to repartition the data by zone before saving.
         :param calculate_zone: Whether to first add `zone` and `dup` columns to `df`.
         :param num_buckets: Number of buckets to use for data partitioning.
-        :param path: Optional path under which to save the table data. Note: all files under `path` will be deleted.
+        :param path: Optional path under which to save the table data. 
+                     !!! BEWARE: all files under `path` will be deleted. !!!
         """
         # if tblname in AxsCatalog._AXS_TABLES:
         if self._CatalogUtils.tableExists(tblname):
