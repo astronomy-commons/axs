@@ -1,8 +1,7 @@
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+      - 'v*'
 
 name: Create Release
 
@@ -16,19 +15,30 @@ jobs:
     # Checkout the repository at tag v* (github ref)
     - name: Checkout repository
       uses: actions/checkout@v2
-      with:
-        repository: stevenstetzler/axs
-        path: ./axs
-        ref: ${{ github.ref }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-    # Build the jar
-    - name: Build AXS
+    - name: Build AxsUtilities
       run: |
         # build AxsUtilities.jar
-        cd ./axs/AxsUtilities
+        cd AxsUtilities
         mvn package
         mkdir -p /export
         mv target/AxsUtilities*.jar /export/AxsUtilities.jar
+    - name: Package AXS
+      # https://github.com/astronomy-commons/axs-spark/releases/download/axs-v3.0.0-preview2/axs-spark.tgz
+      # Directory in tarball is spark-3.0.0-preview-bin-axs-spark/
+      env:
+        AXS_TAG: ${{ github.event.release.tag_name }}
+      run: |
+        AXS_SPARK_TAG=$(cat .axs_spark_tag)
+        SPARK_DIR=$(echo $AXS_SPARK_TAG | sed 's/axs/bin-axs/')
+        echo AXS_SPARK_TAG $AXS_SPARK_TAG SPARK_DIR $SPARK_DIR
+        echo AXS_TAG $AXS_TAG
+        curl -OL https://github.com/astronomy-commons/axs-spark/releases/download/$AXS_SPARK_TAG/axs-spark.tgz
+        tar -xzf axs-spark.tgz
+        cp /export/AxsUtilities.jar $SPARK_DIR/jars/
+        cp -r axs/ $SPARK_DIR/python/
+        mv $SPARK_DIR $AXS_TAG
+        tar -czf $AXS_TAG.tgz $AXS_TAG
+        mv $AXS_TAG.tgz /export/
     # Create the Github Release
     - name: Create Release
       id: create_release
@@ -38,7 +48,7 @@ jobs:
       with:
         tag_name: ${{ github.ref }}
         release_name: Release ${{ github.ref }}
-        body: "AXS jar release ${{ github.ref }}"
+        body: "AXS release ${{ github.ref }}"
         draft: true
         prerelease: false
     # Add jar to release
@@ -49,6 +59,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-        asset_path: /export/AxsUtilities.jar
-        asset_name: AxsUtilities.jar
-        asset_content_type: application/java-archive
+        asset_path: /export/$AXS_TAG.jar
+        asset_name: $AXS_TAG.tgz
+        asset_content_type: application/zip-archive
