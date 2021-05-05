@@ -28,17 +28,15 @@ def calc_dist_simple(r1in, d1in, r2in, d2in):
     # the opposite mask (these rows will be calculated)
     nf = np.logical_not(f)
 
-    # Gnomonic projection centered on r1, dec1
     ra1 = r1[nf] / 180 * math.pi
     ra2 = r2[nf] / 180 * math.pi
     dec1 = d1[nf] / 180 * math.pi
     dec2 = d2[nf] / 180 * math.pi
     ra = np.minimum(np.abs(ra1 - ra2), 360 - np.abs(ra1 - ra2))
     dec = np.abs(dec1 - dec2)
-    cosc = np.cos(ra) * np.cos(dec)
     cosdec = np.cos(dec)
     res[nf] = np.sqrt(np.power(cosdec, 2) * np.power(np.sin(ra), 2) +
-                      np.power(np.sin(dec), 2)) / cosc
+                      np.power(np.sin(dec), 2))
     return pd.Series(res)
 
 
@@ -59,11 +57,6 @@ def create_min_udf(df, distcolname):
             pdf.loc[pdf[distcolname].idxmin()])
         return pdfmin.transpose()
     return min_distance
-
-
-def deg_to_gnom(deg):
-    d2 = deg / 180 * math.pi
-    return math.sin(d2) / math.cos(d2)
 
 
 def dec_to_zone(dec, zone_height=Constants.ONE_AMIN):
@@ -164,9 +157,9 @@ class AxsFrame(DataFrame):
                 use_smj_optim = False
 
         ff = AxsFrame.__get_ff(self._sc)
-
-        res = DataFrame(ff.crossmatch(self._jdf, axsframe._jdf, r, use_smj_optim, False, True),  # return_min, include_dist_col),
-                  self.sql_ctx)
+        zone_height = self._table_info['zone_height']
+        res = DataFrame(ff.crossmatch(self._jdf, axsframe._jdf, r, zone_height, use_smj_optim),
+                        self.sql_ctx)
 
         if return_min:
             w = Window.partitionBy(res['zone'], res['ra'], res['dec']).orderBy(res['axsdist'])
