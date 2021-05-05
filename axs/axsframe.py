@@ -303,20 +303,23 @@ class AxsFrame(DataFrame):
         step1 = rng1 / numbins1
         step2 = rng2 / numbins2
 
-        hist2d = res.withColumn("bin1", ((res[colname1]-min1)/step1).cast("int")*step1+min1) \
-            .withColumn("bin2", ((res[colname2]-min2)/step2).cast("int")*step2+min2).\
-            groupBy("bin1", "bin2").count()
-        hist2data = hist2d.orderBy(hist2d.bin1, hist2d.bin2).collect()
-        bin1 = list(map(lambda row: row.bin1, hist2data))
-        bin2 = list(map(lambda row: row.bin2, hist2data))
-        vals = list(map(lambda row: row["count"], hist2data))
+	hist2d = res.withColumn("bin1", ((res[colname1]-min1)/step1).cast("int")) \
+		    .withColumn("bin2", ((res[colname2]-min2)/step2).cast("int")) \
+		    .groupBy("bin1", "bin2").count()
+	hist2data = hist2d.orderBy(hist2d.bin1, hist2d.bin2).collect()
+	bin1 = np.array(list(map(lambda row: row.bin1, hist2data)))
+	bin2 = np.array(list(map(lambda row: row.bin2, hist2data)))
+	vals = np.array(list(map(lambda row: row["count"], hist2data)))
 
-        x, y = np.mgrid[slice(min1, max1 + step1, step1),
-                        slice(min2, max2 + step2, step2)]
-        z = np.zeros(x.shape)
-        for b1, b2, v in zip(bin1, bin2, vals):
-            z[int((b1-min1)/step1)][int((b2-min2)/step2)] = v
-        return x, y, z
+	x, y = np.mgrid[slice(min1, max1 + step1, step1),
+			slice(min2, max2 + step2, step2)]
+
+	z = np.zeros(numbins1*numbins2)
+	ok_bins = np.where((bin1 >= 0) & (bin1 < numbins1) & (bin2 >= 0) & (bin2 < numbins2))
+	bin_onedim_index = bin2 + bin1*numbins2
+	z[bin_onedim_index[ok_bins]] = vals[ok_bins]
+
+	return x, y, z.reshape((numbins1, numbins2))
 
     def exclude_duplicates(self):
         """
