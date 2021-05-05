@@ -321,6 +321,82 @@ class AxsFrame(DataFrame):
 
 	return x, y, z.reshape((numbins1, numbins2))
 
+    def healpix_hist(NSIDE=64, groupby=[], agg={"*": "count"}, healpix_column="hpix12",
+                     return_df=False):
+        """
+        Return a healpix-binned histogram at a resolution specified by NSIDE,
+        and after performing aggregations specified in agg.
+
+        :param NSIDE: Resolution of the output healpix map, default NSIDE=64.
+        :param groupby: List of columns to group by, either as strings or Spark column objects.
+        :param agg: Dictionary of aggregations to apply, passed to Spark's agg function.
+        :param healpix_column: Column name containing healpix pixel ID values.
+        :param return_df: Return a dataframe with the aggregated data, not reshaped into a healpix map.
+        :return: Array of aggregated values in the shape of a healpix map (unless return_df=True)
+        """
+
+        from pyspark.sql.functions import floor as FLOOR, col as COL, lit, shiftRight
+
+        order0 = 12
+        order  = hp.nside2order(NSIDE)
+        shr    = 2*(order0 - order)
+
+        # construct query
+        df = self._df.withColumn('hpix__', shiftRight(healpix_column, shr))
+        gbcols = ('hpix__', )
+        for axspec in groupby:
+            if not isinstance(axspec, str):
+                (col, c0, c1, dc) = axspec
+                df = ( df
+                    .where((lit(c0) < COL(col)) & (COL(col) < lit(c1)))
+                    .withColumn(col + '_bin__', FLOOR((COL(col) - lit(c0)) / lit(dc)) * lit(dc) + lit(c0) )
+                     )
+                gbcols += ( col + '_bin__', )
+            else:
+                gbcols += ( axspec, )
+        df = df.groupBy(*gbcols)
+
+        # execute aggregation
+        df = df.agg(agg)
+
+        # fetch result
+        df = df.toPandas()
+        if returnDf:
+            return df
+
+        # repack the result into maps
+        # This results line is slightly dangerous, because some aggregate functions are purely aliases.
+        # E.g., mean(x) gets returned as a column avg(x).
+        results = [ f"{v}({k})" if k != "*" else f"{v}(1)" for k, v in agg.items() ]    # Result columns
+        def _create_map(df):
+            maps = dict()
+            for val in results:
+                map_ = np.zeros(hp.nside2npix(NSIDE))
+                # I think this line throws an error if there are no rows in the result
+                map_[df.hpix__.values] = df[val].values
+                maps[val] = [ map_ ]
+            return pd.DataFrame(data=maps)
+
+        idxcols = list(gbcols[1:])
+        if len(idxcols) == 0:
+            ret = _create_map(df)
+            assert(len(ret) == 1)
+            if not returnDf:
+                # convert to tuple, or scalar
+                ret = tuple(ret[name].values[0] for name in results)
+                if len(ret) == 1:
+                    ret = ret[0]
+        else:
+            ret = df.groupby(idxcols).apply(_create_map)
+            ret.index = ret.index.droplevel(-1)
+            ret.index.rename([ name.split("_bin__")[0] for name in ret.index.names ], inplace=True)
+            if "count(1)" in ret:
+                        ret = ret.rename(columns={'count(1)': 'count'})
+            if not returnDf:
+                if len(ret.columns) == 1:
+                    ret = ret.iloc[:, 0]
+        return ret
+
     def exclude_duplicates(self):
         """
         Removes the duplicated data (where `dup` is equal to `1`) from the AxsFrame.
