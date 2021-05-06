@@ -1,6 +1,7 @@
 
 import math
 import numpy as np
+import healpy as hp
 import pandas as pd
 from axs import Constants
 from pyspark.sql import DataFrame, Window
@@ -321,7 +322,7 @@ class AxsFrame(DataFrame):
 
         return x, y, z.reshape((numbins1, numbins2))
 
-    def healpix_hist(NSIDE=64, groupby=[], agg={"*": "count"}, healpix_column="hpix12",
+    def healpix_hist(self, NSIDE=64, groupby=[], agg={"*": "count"}, healpix_column="hpix12",
                      return_df=False):
         """
         Return a healpix-binned histogram at a resolution specified by NSIDE,
@@ -361,7 +362,7 @@ class AxsFrame(DataFrame):
 
         # fetch result
         df = df.toPandas()
-        if returnDf:
+        if return_df:
             return df
 
         # repack the result into maps
@@ -381,7 +382,7 @@ class AxsFrame(DataFrame):
         if len(idxcols) == 0:
             ret = _create_map(df)
             assert(len(ret) == 1)
-            if not returnDf:
+            if not return_df:
                 # convert to tuple, or scalar
                 ret = tuple(ret[name].values[0] for name in results)
                 if len(ret) == 1:
@@ -392,7 +393,7 @@ class AxsFrame(DataFrame):
             ret.index.rename([ name.split("_bin__")[0] for name in ret.index.names ], inplace=True)
             if "count(1)" in ret:
                         ret = ret.rename(columns={'count(1)': 'count'})
-            if not returnDf:
+            if not return_df:
                 if len(ret.columns) == 1:
                     ret = ret.iloc[:, 0]
         return ret
