@@ -91,6 +91,7 @@ class AxsFrame(DataFrame):
         self._df = dataframe
         self._table_info = table_info
         self._support_repr_html = False
+        self._zone_height = table_info['zone_height']
 
     _support_repr_html = False
 
@@ -151,15 +152,14 @@ class AxsFrame(DataFrame):
                       "Fast crossmatch is not possible. "
                       "Switching to the slower crossmatch algorithm version.\n")
                 use_smj_optim = False
-            if int(self._table_info['zone_height'] * 1e10)/1e10 != int(axsframe._table_info['zone_height'] * 1e10)/1e10:
+            if int(self._zone_height * 1e10)/1e10 != int(axsframe._table_info['zone_height'] * 1e10)/1e10:
                 print("\nWARNING: the two tables don't have the same zone height. "
                       "Fast crossmatch is not possible. "
                       "Switching to the slower crossmatch algorithm version.\n")
                 use_smj_optim = False
 
         ff = AxsFrame.__get_ff(self._sc)
-        zone_height = self._table_info['zone_height']
-        res = DataFrame(ff.crossmatch(self._jdf, axsframe._jdf, r, zone_height, use_smj_optim),
+        res = DataFrame(ff.crossmatch(self._jdf, axsframe._jdf, r, self._zone_height, use_smj_optim),
                         self.sql_ctx)
 
         if return_min:
@@ -183,8 +183,8 @@ class AxsFrame(DataFrame):
         :param spans_prime_mer: Whether RA band spans the prime meridian (0 deg).
         :return: The AxsFrame containing the resulting data.
         """
-        zone1 = dec_to_zone(dec1)
-        zone2 = dec_to_zone(dec2)
+        zone1 = dec_to_zone(dec1, zone_height=self._zone_height)
+        zone2 = dec_to_zone(dec2, zone_height=self._zone_height)
         if spans_prime_mer:
             return wrap(self._df.where(self._df.zone.between(zone1, zone2) &
                                        (self._df.ra >= ra1 |
@@ -216,12 +216,12 @@ class AxsFrame(DataFrame):
             raise ValueError("Ra has to be inside [0, 360) interval. Got: "+str(ra))
         if dec < -90 or dec > 90:
             raise ValueError("Dec has to be inside [-90, 90] interval. Got: "+str(dec))
-        zone1 = dec_to_zone(dec - r)
-        zone2 = dec_to_zone(dec + r)
+        zone1 = dec_to_zone(dec - r, zone_height=self._zone_height)
+        zone2 = dec_to_zone(dec + r, zone_height=self._zone_height)
         if zone1 < 0:
             zone1 = 0
-        if zone2 > max_zone():
-            zone2 = max_zone()
+        if zone2 > max_zone(zone_height=self._zone_height):
+            zone2 = max_zone(zone_height=self._zone_height)
         dec1 = dec - r
         dec2 = dec + r
         if dec1 < -90:
