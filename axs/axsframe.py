@@ -272,12 +272,14 @@ class AxsFrame(DataFrame):
 
     def histogram2d(self, cond1, cond2, numbins1, numbins2, min1=None, max1=None, min2=None, max2=None):
         """
-        Uses `cond1` and `cond2` colunm expressions to obtain data for 2D histogram calculation. The data on
-        x axis will be binned into `numbins1` bins. The data on y axis will be binned into `numbins2` bins.
-        If `min1`, `max1`, `min2` or `max2` are not spacified, they will be calculated using an additional pass
-        through the data.
-        The method returns x, y and z 2-D numpy arrays (see numpy.mgrid) which can be used as an input to
-        `matplotlib.pcolormesh`.
+        Uses `cond1` and `cond2` column expressions to obtain data for 2D
+        histogram calculation. The data on x axis will be binned into `numbins1`
+        bins. The data on y axis will be binned into `numbins2` bins. If `min1`,
+        `max1`, `min2` or `max2` are not spacified, they will be calculated
+        using an additional pass through the data.
+
+        The method returns x, y and z 2-D numpy arrays which can be used as an
+        input to `matplotlib.pcolormesh`.
 
         :param cond1: Column expression determining the data on x axis.
         :param cond2: Column expression determining the data on y axis.
@@ -287,7 +289,7 @@ class AxsFrame(DataFrame):
         :param max1: Optional maximum value for x axis data.
         :param min2: Optional minimum value for y axis data.
         :param max2: Optional maximum value for y axis data.
-        :return: x, y, z 2-D numpy "meshgrid" arrays (see numpy.mgrid)
+        :return: x, y, z 2-D numpy "meshgrid" arrays
         """
         colname1 = "axs_hist_col1"
         colname2 = "axs_hist_col2"
@@ -312,8 +314,9 @@ class AxsFrame(DataFrame):
         bin2 = np.array(list(map(lambda row: row.bin2, hist2data)))
         vals = np.array(list(map(lambda row: row["count"], hist2data)))
 
-        x, y = np.mgrid[slice(min1, max1 + step1, step1),
-                        slice(min2, max2 + step2, step2)]
+        x, y = np.meshgrid(np.arange(numbins1)*step1 + min1,
+                           np.arange(numbins2)*step2 + min2, indexing='ij')
+
 
         z = np.zeros(numbins1*numbins2)
         ok_bins = np.where((bin1 >= 0) & (bin1 < numbins1) & (bin2 >= 0) & (bin2 < numbins2))
