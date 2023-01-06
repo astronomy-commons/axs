@@ -274,7 +274,16 @@ class AxsFrame(DataFrame):
         """
         colname = "axs_hist_col"
         res = self._df.select(cond.alias(colname))
-        return res.withColumn("bin", (res[colname] / numbins).cast("int")).groupBy("bin").count()
+        
+        mm = res.select(F.min(res[colname]).alias("minv"), F.max(res[colname]).alias("maxv")).\
+                collect()
+        (minv, maxv) = (mm[0]["minv"], mm[0]["maxv"])
+
+        rng = float(maxv - minv)
+        step = rng / numbins
+        
+        return res.withColumn("bin", ((res[colname]-minv) / step).cast("int") * step + minv).\
+            groupBy("bin").count()
 
     def histogram2d(self, cond1, cond2, numbins1, numbins2, min1=None, max1=None, min2=None, max2=None):
         """
